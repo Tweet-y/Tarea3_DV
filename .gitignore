@@ -14,6 +14,7 @@
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 *.log
+.DS_Store
 
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be commited to version control.
 *.blend1
@@ -102,8 +103,15 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
-# UI Toolkit auto generated files
-/UIElementsSchema/
-
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Tools
+Packages/
+graphify-out/
+*.md
+!README.md
+.claude/
+.serena/
+# Plan local de HUD (documento de trabajo ignorado)
+/Plan-HUD-Botellas.md

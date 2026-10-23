@@ -1,0 +1,6 @@
+Patio: 12 saltos; subida 0.800 m; azotea (-32.5, 17.099867500000002, -57.3); 3 botellas.
+Centro: 14 saltos; subida 0.793 m; azotea (-22.5, 18.599867500000002, -22.3); 3 botellas.
+CalleOeste: 16 saltos; subida 0.787 m; azotea (-52.3, 20.099867500000002, -37.5); 3 botellas.
+BarrioSur: 16 saltos; subida 0.787 m; azotea (-57.5, 20.099867500000002, -127.3); 3 botellas.
+Objetos anteriores conservados: 2448
+Botellas nuevas: 12. Total esperado: 30.
