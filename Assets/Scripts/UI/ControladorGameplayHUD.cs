@@ -218,6 +218,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
             case ControladorPartidaBotellas.Causa.Botellas: return "Recogiste todas las botellas";
             case ControladorPartidaBotellas.Causa.Desmayo: return "Te desmayaste";
             case ControladorPartidaBotellas.Causa.Agua: return "Caíste al agua";
+            case ControladorPartidaBotellas.Causa.Enemigo: return "Te atraparon";
             case ControladorPartidaBotellas.Causa.Ninguna: return "";
             default:
                 throw new ArgumentOutOfRangeException(nameof(causa), causa, null);

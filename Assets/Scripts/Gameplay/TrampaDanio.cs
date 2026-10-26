@@ -17,6 +17,12 @@ public class TrampaDanio : MonoBehaviour
     [Range(0.01f, 1f)]
     public float cantidadDanio = 0.15f;
 
+    [Tooltip("Causa que se muestra si este golpe termina la partida.")]
+    public ControladorPartidaBotellas.Causa causa = ControladorPartidaBotellas.Causa.Desmayo;
+
+    [Tooltip("Si está activo, cada enfriamiento vuelve a golpear mientras el jugador siga dentro del trigger.")]
+    public bool repetirMientrasContacto = false;
+
     [Tooltip("¿Aplica daño por segundo mientras el jugador permanezca dentro?")]
     public bool esDanioContinuo = false;
 
@@ -70,10 +76,9 @@ public class TrampaDanio : MonoBehaviour
 
     private void OnTriggerStay(Collider other)
     {
-        if (esDanioContinuo && EsJugador(other, out GameObject jugadorObj))
-        {
-            ProcesarDanioContinuo();
-        }
+        if (!EsJugador(other, out GameObject jugadorObj)) return;
+        if (repetirMientrasContacto) ProcesarImpacto(jugadorObj);
+        else if (esDanioContinuo) ProcesarDanioContinuo();
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -141,7 +146,7 @@ public class TrampaDanio : MonoBehaviour
     {
         if (ControladorPartidaBotellas.Instancia != null)
         {
-            ControladorPartidaBotellas.Instancia.RecibirDanio(danio);
+            ControladorPartidaBotellas.Instancia.RecibirDanio(danio, causa);
         }
 
         alDañarJugador?.Invoke();

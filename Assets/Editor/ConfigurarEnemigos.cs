@@ -1,0 +1,418 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Unity.AI.Navigation;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.AI;
+
+/// <summary>Prepara el rig de Nemesis, los prefabs y el NavMesh de MapaV1.</summary>
+[InitializeOnLoad]
+public static class ConfigurarEnemigos
+{
+    static string RutaRehacer => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs", "rehacer-nemesis.txt"));
+
+    static ConfigurarEnemigos()
+    {
+        // Cada compilación vuelve a escuchar: el método se desuscribe al correr.
+        EditorApplication.update += RehacerSiEstaPendiente;
+    }
+
+    static void RehacerSiEstaPendiente()
+    {
+        if (!File.Exists(RutaRehacer)) return;
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) return;
+        EditorApplication.update -= RehacerSiEstaPendiente;
+        File.Delete(RutaRehacer);
+        Ejecutar();
+    }
+
+    const string Fbx = "Assets/Prefabs/Personaje/nemesis/Nemesis.fbx";
+    const string Biker = "Assets/Synty/PolygonCityCharacters/Prefabs/Character_Biker_01.prefab";
+    const string PrefabNemesis = "Assets/Prefabs/Enemigos/Nemesis.prefab";
+    const string PrefabTitan = "Assets/Prefabs/Enemigos/Titan.prefab";
+    const string Escena = "Assets/Scenes/MapaV1.unity";
+    const string NavMeshAsset = "Assets/Scenes/MapaV1/NavMesh-Ciudad.asset";
+    const string Controller = "Assets/Starter Assets/Runtime/ThirdPersonController/Character/Animations/StarterAssetsThirdPerson.controller";
+    const string Pisada = "Assets/Starter Assets/Runtime/ThirdPersonController/Character/Sfx/Player_Footstep_01.wav";
+    const float AlturaNemesis = 2.6f;
+
+    static readonly (string humano, string hueso)[] Huesos =
+    {
+        ("Hips", "Bip01_Pelvis"),
+        ("Spine", "Bip01_Spine1"),
+        ("Chest", "Bip01_Spine2"),
+        ("UpperChest", "Bip01_Spine4"),
+        ("Neck", "Bip01_Neck1"),
+        ("Head", "Bip01_Head1"),
+        ("LeftShoulder", "Bip01_L_Clavicle"),
+        ("LeftUpperArm", "Bip01_L_UpperArm"),
+        ("LeftLowerArm", "Bip01_L_Forearm"),
+        ("LeftHand", "Bip01_L_Hand"),
+        ("RightShoulder", "Bip01_R_Clavicle"),
+        ("RightUpperArm", "Bip01_R_UpperArm"),
+        ("RightLowerArm", "Bip01_R_Forearm"),
+        ("RightHand", "Bip01_R_Hand"),
+        ("LeftUpperLeg", "Bip01_L_Thigh"),
+        ("LeftLowerLeg", "Bip01_L_Calf"),
+        ("LeftFoot", "Bip01_L_Foot"),
+        ("LeftToes", "Bip01_L_Toe0"),
+        ("RightUpperLeg", "Bip01_R_Thigh"),
+        ("RightLowerLeg", "Bip01_R_Calf"),
+        ("RightFoot", "Bip01_R_Foot"),
+        ("RightToes", "Bip01_R_Toe0"),
+    };
+
+    [MenuItem("Tools/Enemigos/Configurar")]
+    public static void Ejecutar()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            throw new System.Exception("Detén Play antes de configurar enemigos.");
+        if (!File.Exists(Fbx))
+            throw new System.Exception("Falta " + Fbx + ". Corre Tools/convertir_nemesis.py con Blender.");
+
+        ConfigurarHumanoide();
+        var escena = EditorSceneManager.OpenScene(Escena);
+        var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(Controller);
+        var pisada = AssetDatabase.LoadAssetAtPath<AudioClip>(Pisada);
+        if (controller == null) throw new System.Exception("No está el controller de Starter Assets.");
+
+        Directory.CreateDirectory("Assets/Prefabs/Enemigos");
+        var nemesis = CrearNemesis(controller, pisada);
+        var titan = CrearTitan(controller, pisada);
+        PrefabUtility.SaveAsPrefabAsset(nemesis, PrefabNemesis);
+        PrefabUtility.SaveAsPrefabAsset(titan, PrefabTitan);
+        Object.DestroyImmediate(nemesis);
+        Object.DestroyImmediate(titan);
+
+        QuitarInstanciasPrevias();
+        var superficie = HornearNavMesh();
+        var jugador = GameObject.FindGameObjectWithTag("Player");
+        if (jugador == null) throw new System.Exception("MapaV1 no tiene un objeto con tag Player.");
+
+        var puntoNemesis = PuntoEnNavMesh(jugador.transform.position, 40f);
+        var instanciaNemesis = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PrefabNemesis));
+        instanciaNemesis.transform.position = puntoNemesis;
+        var instanciaTitan = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PrefabTitan));
+        instanciaTitan.transform.position = PuntoTitan(jugador.transform.position);
+
+        EditorSceneManager.MarkSceneDirty(escena);
+        int triangulos = NavMesh.CalculateTriangulation().indices.Length / 3;
+        string informe = "Nemesis humanoid en " + puntoNemesis + "\nTitan en " + instanciaTitan.transform.position
+            + "\nNavMesh triangulos=" + triangulos + " superficie=" + superficie.name + "\n";
+        EditorSceneManager.SaveScene(escena);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.ForceReserializeAssets(new[] { Escena, NavMeshAsset });
+        Directory.CreateDirectory("Logs");
+        File.WriteAllText("Logs/enemigos-setup.txt", informe);
+        Debug.Log("Enemigos configurados. NavMesh triángulos: " + triangulos);
+    }
+
+    static void ConfigurarHumanoide()
+    {
+        var importer = (ModelImporter)AssetImporter.GetAtPath(Fbx);
+        importer.globalScale = 1f;
+        importer.optimizeBones = false;
+        importer.importAnimation = false;
+        importer.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+        importer.animationType = ModelImporterAnimationType.Generic;
+        importer.SaveAndReimport();
+
+        var modelo = AssetDatabase.LoadAssetAtPath<GameObject>(Fbx);
+        var descripcion = DescripcionHumana(modelo);
+        importer.animationType = ModelImporterAnimationType.Human;
+        importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+        importer.autoGenerateAvatarMappingIfUnspecified = false;
+        importer.humanDescription = descripcion;
+        importer.SaveAndReimport();
+
+        var avatar = AssetDatabase.LoadAllAssetsAtPath(Fbx).OfType<Avatar>().FirstOrDefault(a => a.isHuman);
+        if (avatar == null || !avatar.isValid)
+            throw new System.Exception("El avatar Humanoid de Nemesis no es válido. Revisa el mapeo Bip01.");
+    }
+
+    static HumanDescription DescripcionHumana(GameObject modelo)
+    {
+        var porNombre = modelo.GetComponentsInChildren<Transform>(true).ToDictionary(t => t.name, t => t);
+        var humanos = new List<HumanBone>();
+        foreach (var (humano, hueso) in Huesos)
+        {
+            if (!porNombre.ContainsKey(hueso))
+                throw new System.Exception("Falta el hueso " + hueso + " en Nemesis.fbx.");
+            humanos.Add(new HumanBone
+            {
+                humanName = humano,
+                boneName = hueso,
+                limit = new HumanLimit { useDefaultValues = true }
+            });
+        }
+
+        var esqueleto = new List<SkeletonBone>();
+        foreach (var t in modelo.GetComponentsInChildren<Transform>(true))
+        {
+            esqueleto.Add(new SkeletonBone
+            {
+                name = t.name,
+                position = t.localPosition,
+                rotation = t.localRotation,
+                scale = t.localScale
+            });
+        }
+
+        return new HumanDescription
+        {
+            human = humanos.ToArray(),
+            skeleton = esqueleto.ToArray(),
+            upperArmTwist = 0.5f,
+            lowerArmTwist = 0.5f,
+            upperLegTwist = 0.5f,
+            lowerLegTwist = 0.5f,
+            armStretch = 0.05f,
+            legStretch = 0.05f,
+            feetSpacing = 0f,
+            hasTranslationDoF = false
+        };
+    }
+
+    static GameObject CrearNemesis(RuntimeAnimatorController controller, AudioClip pisada)
+    {
+        // El Animator tiene que vivir en la raíz del esqueleto. Si el padre
+        // tiene otra escala, el humanoid aplasta la malla.
+        var root = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Fbx));
+        root.name = "Nemesis";
+        NormalizarAltura(root, AlturaNemesis);
+        ApoyarPies(root);
+        var animator = root.GetComponent<Animator>();
+        if (animator == null) animator = root.AddComponent<Animator>();
+        animator.runtimeAnimatorController = controller;
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        AplicarUrp(root);
+
+        var acecho = root.AddComponent<EnemigoAcechador>();
+        acecho.usarNavMesh = true;
+        acecho.pisadaPesada = pisada;
+        var agente = root.AddComponent<NavMeshAgent>();
+        agente.speed = 2.2f;
+        agente.angularSpeed = 240f;
+        agente.acceleration = 16f;
+        agente.stoppingDistance = 0.5f;
+        agente.radius = 0.4f;
+        agente.height = 2f;
+        agente.baseOffset = 0f;
+        agente.enabled = false;
+        CuerpoFisico(root, 0.20f, 1.5f, 12f);
+        return root;
+    }
+
+    static GameObject CrearTitan(RuntimeAnimatorController controller, AudioClip pisada)
+    {
+        var root = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Biker));
+        root.name = "Titan";
+        root.transform.localScale = Vector3.one * 20f;
+        foreach (var colision in root.GetComponentsInChildren<Collider>())
+            Object.DestroyImmediate(colision);
+        var animator = root.GetComponent<Animator>();
+        animator.runtimeAnimatorController = controller;
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        var acecho = root.AddComponent<EnemigoAcechador>();
+        acecho.usarNavMesh = false;
+        acecho.velocidadCaminar = 1.5f;
+        acecho.velocidadCorrer = 3.2f;
+        acecho.umbralCorrer = 40f;
+        acecho.pisadaPesada = pisada;
+        acecho.volumenPisada = 1f;
+        CuerpoFisico(root, 0.35f, 2f, 25f);
+        return root;
+    }
+
+    static void CuerpoFisico(GameObject root, float danio, float enfriamiento, float empuje)
+    {
+        var cuerpo = root.AddComponent<Rigidbody>();
+        cuerpo.isKinematic = true;
+        cuerpo.useGravity = false;
+        var contacto = new GameObject("Contacto");
+        contacto.transform.SetParent(root.transform, false);
+        var capsula = contacto.AddComponent<CapsuleCollider>();
+        capsula.isTrigger = true;
+        EncajarCapsula(root, capsula);
+        var trampa = contacto.AddComponent<TrampaDanio>();
+        trampa.cantidadDanio = danio;
+        trampa.tiempoEnfriamiento = enfriamiento;
+        trampa.fuerzaEmpuje = empuje;
+        trampa.causa = ControladorPartidaBotellas.Causa.Enemigo;
+        trampa.repetirMientrasContacto = true;
+        trampa.clipSonidoDanio = AssetDatabase.LoadAssetAtPath<AudioClip>(
+            "Assets/Starter Assets/Runtime/ThirdPersonController/Character/Sfx/Player_Land.wav");
+    }
+
+    static void EncajarCapsula(GameObject root, CapsuleCollider capsula)
+    {
+        var mundo = BoundsDe(root);
+        float escala = Mathf.Max(0.001f, root.transform.lossyScale.y);
+        float escalaXZ = Mathf.Max(0.001f, root.transform.lossyScale.x);
+        capsula.height = mundo.size.y / escala;
+        capsula.radius = Mathf.Max(mundo.extents.x, mundo.extents.z) / escalaXZ * 0.55f;
+        capsula.center = root.transform.InverseTransformPoint(mundo.center);
+        capsula.direction = 1;
+    }
+
+    static void NormalizarAltura(GameObject root, float metros)
+    {
+        root.transform.localScale = Vector3.one;
+        float altura = BoundsDe(root).size.y;
+        if (altura < 0.01f) throw new System.Exception(root.name + " no tiene renderers.");
+        float escala = metros / altura;
+        if (escala < 0.5f || escala > 2f)
+            throw new System.Exception("FBX con escala rota, rehacer con convertir_nemesis.py");
+        root.transform.localScale = Vector3.one * escala;
+    }
+
+    static void ApoyarPies(GameObject root)
+    {
+        float delta = root.transform.position.y - BoundsDe(root).min.y;
+        foreach (Transform hijo in root.transform)
+            hijo.position += Vector3.up * delta;
+    }
+
+    static Bounds BoundsDe(GameObject root)
+    {
+        var renderers = root.GetComponentsInChildren<Renderer>();
+        var bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+        return bounds;
+    }
+
+    static void AplicarUrp(GameObject root)
+    {
+        var shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) return;
+        Directory.CreateDirectory("Assets/Prefabs/Personaje/nemesis/Materiales");
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>())
+        {
+            var materiales = renderer.sharedMaterials;
+            for (int i = 0; i < materiales.Length; i++)
+            {
+                var origen = materiales[i];
+                if (origen == null) continue;
+                string ruta = "Assets/Prefabs/Personaje/nemesis/Materiales/" + origen.name + ".mat";
+                var material = AssetDatabase.LoadAssetAtPath<Material>(ruta);
+                if (material == null)
+                {
+                    material = new Material(shader) { name = origen.name };
+                    AssetDatabase.CreateAsset(material, ruta);
+                }
+                material.shader = shader;
+                var textura = origen.mainTexture != null ? origen.mainTexture : origen.GetTexture("_BaseMap");
+                if (textura != null)
+                {
+                    material.SetTexture("_BaseMap", textura);
+                    material.SetTexture("_MainTex", textura);
+                }
+                materiales[i] = material;
+            }
+            renderer.sharedMaterials = materiales;
+        }
+    }
+
+    static NavMeshSurface HornearNavMesh()
+    {
+        IgnorarTriggersDelHorneado();
+        var previo = Object.FindFirstObjectByType<NavMeshSurface>();
+        var superficie = previo != null ? previo : new GameObject("NavMeshCiudad").AddComponent<NavMeshSurface>();
+        superficie.agentTypeID = 0;
+        superficie.collectObjects = CollectObjects.All;
+        superficie.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+        superficie.navMeshData = null;
+        superficie.BuildNavMesh();
+        if (NavMesh.CalculateTriangulation().vertices.Length == 0)
+            throw new System.Exception("El NavMesh quedó vacío. Las calles no aportaron colliders.");
+        GuardarNavMesh(superficie);
+        return superficie;
+    }
+
+    static void IgnorarTriggersDelHorneado()
+    {
+        foreach (var colision in Object.FindObjectsByType<Collider>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            if (!colision.isTrigger && colision.GetComponent<AguaLetal>() == null) continue;
+            IgnorarDelNavMesh(colision.gameObject);
+        }
+        foreach (var agua in Object.FindObjectsByType<AguaLetal>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            IgnorarDelNavMesh(agua.gameObject);
+    }
+
+    static void IgnorarDelNavMesh(GameObject objetivo)
+    {
+        var modificador = objetivo.GetComponent<NavMeshModifier>();
+        if (modificador == null) modificador = objetivo.AddComponent<NavMeshModifier>();
+        modificador.ignoreFromBuild = true;
+    }
+
+    static void GuardarNavMesh(NavMeshSurface superficie)
+    {
+        Directory.CreateDirectory("Assets/Scenes/MapaV1");
+        var datos = superficie.navMeshData;
+        if (datos == null) throw new System.Exception("BuildNavMesh no produjo NavMeshData.");
+        var previo = AssetDatabase.LoadAssetAtPath<NavMeshData>(NavMeshAsset);
+        if (previo != null && previo != datos)
+            AssetDatabase.DeleteAsset(NavMeshAsset);
+        if (AssetDatabase.GetAssetPath(datos) != NavMeshAsset)
+            AssetDatabase.CreateAsset(datos, NavMeshAsset);
+        superficie.navMeshData = AssetDatabase.LoadAssetAtPath<NavMeshData>(NavMeshAsset);
+    }
+
+    static void QuitarInstanciasPrevias()
+    {
+        foreach (var nombre in new[] { "Nemesis", "Titan" })
+        {
+            var existente = GameObject.Find(nombre);
+            if (existente != null) Object.DestroyImmediate(existente);
+        }
+    }
+
+    static Vector3 PuntoEnNavMesh(Vector3 origen, float distancia)
+    {
+        if (!NavMesh.SamplePosition(origen, out var suelo, 8f, NavMesh.AllAreas))
+            throw new System.Exception("El jugador no está cerca del NavMesh.");
+        for (int i = 0; i < 24; i++)
+        {
+            float angulo = i * Mathf.PI * 2f / 24f;
+            var candidato = suelo.position + new Vector3(Mathf.Cos(angulo), 0f, Mathf.Sin(angulo)) * distancia;
+            if (!NavMesh.SamplePosition(candidato, out var hit, 12f, NavMesh.AllAreas)) continue;
+            float separacion = Vector3.Distance(Plano(hit.position), Plano(suelo.position));
+            if (separacion < 30f || separacion > 55f) continue;
+            var camino = new NavMeshPath();
+            if (NavMesh.CalculatePath(hit.position, suelo.position, NavMesh.AllAreas, camino)
+                && camino.status == NavMeshPathStatus.PathComplete)
+                return hit.position;
+        }
+        throw new System.Exception("No hay un punto del NavMesh a ~40 m del jugador con camino.");
+    }
+
+    static Vector3 PuntoTitan(Vector3 jugador)
+    {
+        bool alguno = false;
+        var bounds = new Bounds(jugador, Vector3.zero);
+        foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            if (renderer.bounds.size.x > 400f || renderer.bounds.size.y > 200f) continue;
+            if (!alguno) { bounds = renderer.bounds; alguno = true; }
+            else bounds.Encapsulate(renderer.bounds);
+        }
+        var destino = jugador + new Vector3(0f, 0f, 150f);
+        if (alguno)
+        {
+            destino.x = Mathf.Clamp(destino.x, bounds.min.x + 4f, bounds.max.x - 4f);
+            destino.z = Mathf.Clamp(destino.z, bounds.min.z + 4f, bounds.max.z - 4f);
+            if (Vector3.Distance(Plano(destino), Plano(jugador)) < 100f)
+                destino = new Vector3(jugador.x, jugador.y, bounds.max.z - 4f);
+        }
+        destino.y = jugador.y;
+        return destino;
+    }
+
+    static Vector3 Plano(Vector3 v) => new Vector3(v.x, 0f, v.z);
+}

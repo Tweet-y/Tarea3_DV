@@ -2,7 +2,7 @@
 
 Proyecto de videojuego desarrollado en **Unity**, correspondiente a la segunda evaluación de la asignatura de Desarrollo de Videojuegos. Es un juego de **plataformas en tercera persona**, de temática libre: menú inicial, un nivel jugable y una pantalla de resumen al terminar.
 
-Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel incluye obstáculos que reducen la salud. No se requieren enemigos.
+Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel incluye obstáculos que reducen la salud y dos enemigos que persiguen al jugador.
 
 ---
 
@@ -40,7 +40,15 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 - **Verificación integrada:** `Tools > Gameplay > Verificar mapa curacion caida y victoria` ejecuta una partida de prueba y escribe el resultado en `Logs/ciudad-final-validada.txt`.
 - **Coleccionables:** `ObjetoEspecialColeccionable` recoge botellas una sola vez. El trigger rectangular mide el tamaño original del mesh × **1,30** en cada eje, también para curativas; el modelo conserva su tamaño.
 - **Salud y ebriedad:** recoger botellas objetivo aumenta la ebriedad y reduce la salud; las azules recuperan salud. La ebriedad también aumenta con el tiempo a **0,001 / 1,20 = 0,00083333 por segundo**, dando un 20 % más de margen temporal con los mismos daños y curaciones. Los obstáculos aplican daño mediante `TrampaDanio`.
-- **Victoria y derrota:** el nivel detecta ambas condiciones y abre la pantalla de resumen antes de volver al menú.
+- **Victoria y derrota:** el nivel detecta ambas condiciones y abre la pantalla de resumen antes de volver al menú. Morir por los golpes de un enemigo muestra «Te atraparon».
+
+### Enemigos
+- **Nemesis** aparece a unos 40 m del jugador, espera 5 s y lo persigue por el NavMesh. Camina a 2,2 m/s y corre a 4,6 m/s si está a más de 8 m (el sprint del jugador es 5,335, así que se le puede escapar). El golpe por contacto quita un 20 % de vida cada 1,5 s y empuja con fuerza 12.
+- **Titán** es el personaje Synty `Character_Biker_01` a escala 20 (unos 36 m). No usa NavMesh: camina en línea recta hacia el jugador y atraviesa la ciudad. Camina a 1,5 m/s y corre a 3,2 m/s si está a más de 40 m: a paso normal (2,0) el jugador apenas se le escapa, y con sprint sí. Por debajo del clip de caminar la animación reproduce Walk más lento, para que los pies no patinen ni quede en idle. El golpe quita un 35 % cada 2 s y empuja con fuerza 25.
+- Ambos reutilizan `StarterAssetsThirdPerson` (caminar, correr, idle). El daño es `TrampaDanio` con `repetirMientrasContacto`. Pausa y fin de partida (`Time.timeScale = 0`) los congelan. El jugador todavía no ataca.
+- **Configurar:** `Tools > Enemigos > Configurar` (o `Unity -batchmode -projectPath . -executeMethod ConfigurarEnemigos.Ejecutar -quit` con el editor cerrado). Antes, si hace falta regenerar el FBX: `blender --background --python Tools/convertir_nemesis.py`.
+- **Verificar:** `Tools > Enemigos > Verificar` escribe `Logs/enemigos-validados.txt`.
+- **Créditos:** modelo de Nemesis por **toheed_zahid** en Sketchfab, licencia **CC-BY-4.0**. Hay que mantener esta atribución. El titán sale del pack Synty Polygon City Characters del material del curso.
 
 ---
 
@@ -60,7 +68,7 @@ Assets/
 ├── Animaciones/           # Controladores y clips del personaje
 ├── Inputs/                # Acciones de input
 ├── Materiales/            # Materiales del nivel y del personaje
-├── Prefabs/               # Personaje, coleccionables y obstáculos
+├── Prefabs/               # Personaje, enemigos, coleccionables y obstáculos
 ├── Scenes/                # MenuInicio y escenas de nivel
 ├── Scripts/               # Lógica de juego en C#
 │   ├── ObjetoEspecialColeccionable.cs

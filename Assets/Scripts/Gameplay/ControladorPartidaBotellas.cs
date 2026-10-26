@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 public sealed class ControladorPartidaBotellas : MonoBehaviour
 {
     public enum Resultado { EnCurso, Victoria, Derrota }
-    public enum Causa { Ninguna, Botellas, Desmayo, Agua }
+    public enum Causa { Ninguna, Botellas, Desmayo, Agua, Enemigo }
 
     public static ControladorPartidaBotellas Instancia { get; private set; }
     public event Action EstadoActualizado;
@@ -256,13 +256,13 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     }
 
     /// <summary>Aplica daño directo al jugador (aumenta la intoxicación / reduce la vida).</summary>
-    public void RecibirDanio(float cantidadDanio)
+    public void RecibirDanio(float cantidadDanio, Causa causa = Causa.Desmayo)
     {
         if (pausada || resultado != Resultado.EnCurso || cantidadDanio <= 0f) return;
         ebriedad = Mathf.Min(limiteEbriedad, ebriedad + cantidadDanio);
 
         if (ebriedad >= limiteEbriedad)
-            Finalizar(Resultado.Derrota, Causa.Desmayo);
+            Finalizar(Resultado.Derrota, causa);
 
         EstadoActualizado?.Invoke();
     }
