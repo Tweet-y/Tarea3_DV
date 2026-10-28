@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 
-/// <summary>Comprueba en Play que Nemesis acorta distancia, el titán avanza y el contacto baja la vida.</summary>
+/// <summary>Comprueba en Play que Nemesis acorta distancia, el titán avanza por su NavMesh y el contacto baja la vida.</summary>
 [InitializeOnLoad]
 public static class ValidarEnemigos
 {
@@ -100,7 +100,12 @@ public static class ValidarEnemigos
                 float avanceTitan = Distancia(titanAntes, titan.transform.position);
                 float acercamiento = Distancia(titanAntes, jugador.transform.position) - Distancia(titan.transform.position, jugador.transform.position);
                 Exigir(distancia < distanciaAntes - 1.5f, "Nemesis se acerca al jugador (" + distanciaAntes.ToString("0.0") + " → " + distancia.ToString("0.0") + ").");
-                Exigir(avanceTitan > 2f && acercamiento > 1f, "El titán avanza en línea recta hacia el jugador.");
+                Exigir(avanceTitan > 2f && acercamiento > 1f, "El titán avanza hacia el jugador.");
+                var agenteTitan = titan.GetComponent<NavMeshAgent>();
+                Exigir(agenteTitan != null && agenteTitan.isOnNavMesh
+                    && NavMesh.GetSettingsNameFromID(agenteTitan.agentTypeID) == "Titan", "El titán camina sobre su NavMesh (agente Titan).");
+                Exigir(nemesis.GetComponent<EnemigoAcechador>().objetivo == jugador.transform
+                    && titan.GetComponent<EnemigoAcechador>().objetivo == jugador.transform, "Ambos enemigos tienen al jugador como objetivo.");
                 Exigir(titan.GetComponent<Animator>().GetFloat("Speed") >= 2f, "El titán camina (Speed >= 2) mientras avanza.");
                 var agua = UnityEngine.Object.FindFirstObjectByType<AguaLetal>();
                 Exigir(agua != null, "Hay agua letal en el mapa.");

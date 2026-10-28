@@ -3,13 +3,18 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// Persigue al jugador. Nemesis usa NavMesh; el titán camina en línea recta atravesando la ciudad.
+/// Persigue al jugador con NavMeshAgent, como MovimientoSimpleNPC del curso.
+/// Nemesis usa el agente Humanoid; el titán usa su propio tipo de agente ("Titan").
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Animator))]
 public class EnemigoAcechador : MonoBehaviour
 {
+    [Tooltip("Objetivo a perseguir. Si queda vacío se busca el objeto con tag Player.")]
+    public Transform objetivo;
     public bool usarNavMesh = true;
+    [Tooltip("Radio para llevar el destino al NavMesh del agente (el titán no cabe en calles angostas).")]
+    public float alcanceDestino = 60f;
     public float velocidadCaminar = 2.2f;
     public float velocidadCorrer = 4.6f;
     public float umbralCorrer = 8f;
@@ -21,7 +26,6 @@ public class EnemigoAcechador : MonoBehaviour
 
     Animator animator;
     NavMeshAgent agente;
-    Transform jugador;
     float escalaLocomocion = 1f;
 
     void Awake()
@@ -52,10 +56,10 @@ public class EnemigoAcechador : MonoBehaviour
     IEnumerator Perseguir()
     {
         yield return new WaitForSeconds(retrasoAparicion);
-        while (jugador == null)
+        while (objetivo == null)
         {
             var go = GameObject.FindGameObjectWithTag("Player");
-            if (go != null) jugador = go.transform;
+            if (go != null) objetivo = go.transform;
             else yield return null;
         }
 
@@ -63,7 +67,7 @@ public class EnemigoAcechador : MonoBehaviour
         if (usarNavMesh && agente != null)
         {
             agente.enabled = true;
-            if (!agente.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 6f, NavMesh.AllAreas))
+            if (!agente.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 6f, Filtro()))
                 agente.Warp(hit.position);
             if (!agente.isOnNavMesh)
             {
@@ -76,16 +80,18 @@ public class EnemigoAcechador : MonoBehaviour
         var espera = new WaitForSeconds(0.25f);
         while (true)
         {
-            if (usarNavMesh && agente != null && agente.isOnNavMesh)
-                agente.SetDestination(jugador.position);
+            // El destino se lleva al NavMesh de este tipo de agente: el titán va al punto de avenida más cercano.
+            if (usarNavMesh && agente != null && agente.isOnNavMesh
+                && NavMesh.SamplePosition(objetivo.position, out var destino, alcanceDestino, Filtro()))
+                agente.SetDestination(destino.position);
             yield return espera;
         }
     }
 
     void Update()
     {
-        if (!Persiguiendo || jugador == null) return;
-        float distancia = DistanciaPlana(transform.position, jugador.position);
+        if (!Persiguiendo || objetivo == null) return;
+        float distancia = DistanciaPlana(transform.position, objetivo.position);
         float velocidad = distancia > umbralCorrer ? velocidadCorrer : velocidadCaminar;
         if (usarNavMesh && agente != null && agente.enabled)
         {
@@ -94,7 +100,7 @@ public class EnemigoAcechador : MonoBehaviour
             return;
         }
 
-        Vector3 direccion = jugador.position - transform.position;
+        Vector3 direccion = objetivo.position - transform.position;
         direccion.y = 0f;
         if (direccion.sqrMagnitude > 0.04f)
         {
@@ -115,6 +121,8 @@ public class EnemigoAcechador : MonoBehaviour
         animator.SetFloat("MotionSpeed", lento ? humano / 2f : 1f);
         animator.SetBool("Grounded", true);
     }
+
+    NavMeshQueryFilter Filtro() => new NavMeshQueryFilter { agentTypeID = agente.agentTypeID, areaMask = NavMesh.AllAreas };
 
     float Altura()
     {

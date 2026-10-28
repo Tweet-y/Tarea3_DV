@@ -34,6 +34,12 @@ public static class ConfigurarEnemigos
     const string PrefabTitan = "Assets/Prefabs/Enemigos/Titan.prefab";
     const string Escena = "Assets/Scenes/MapaV1.unity";
     const string NavMeshAsset = "Assets/Scenes/MapaV1/NavMesh-Ciudad.asset";
+    const string NavMeshTitanAsset = "Assets/Scenes/MapaV1/NavMesh-Titan.asset";
+    // Tipo de agente propio para el jefe grande, como JefeHumanoideGrande en la demo del curso.
+    const string AgenteTitan = "Titan";
+    const float RadioTitan = 3f;
+    const float AlturaTitan = 8f;
+    const float EscalaTitan = 20f;
     const string Controller = "Assets/Starter Assets/Runtime/ThirdPersonController/Character/Animations/StarterAssetsThirdPerson.controller";
     const string Pisada = "Assets/Starter Assets/Runtime/ThirdPersonController/Character/Sfx/Player_Footstep_01.wav";
     const float AlturaNemesis = 2.6f;
@@ -73,6 +79,7 @@ public static class ConfigurarEnemigos
             throw new System.Exception("Falta " + Fbx + ". Corre Tools/convertir_nemesis.py con Blender.");
 
         ConfigurarHumanoide();
+        int tipoTitan = TipoAgenteTitan();
         var escena = EditorSceneManager.OpenScene(Escena);
         var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(Controller);
         var pisada = AssetDatabase.LoadAssetAtPath<AudioClip>(Pisada);
@@ -80,30 +87,31 @@ public static class ConfigurarEnemigos
 
         Directory.CreateDirectory("Assets/Prefabs/Enemigos");
         var nemesis = CrearNemesis(controller, pisada);
-        var titan = CrearTitan(controller, pisada);
+        var titan = CrearTitan(controller, pisada, tipoTitan);
         PrefabUtility.SaveAsPrefabAsset(nemesis, PrefabNemesis);
         PrefabUtility.SaveAsPrefabAsset(titan, PrefabTitan);
         Object.DestroyImmediate(nemesis);
         Object.DestroyImmediate(titan);
 
         QuitarInstanciasPrevias();
-        var superficie = HornearNavMesh();
+        IgnorarTriggersDelHorneado();
+        var superficie = HornearNavMesh("NavMeshCiudad", 0, NavMeshAsset);
+        HornearNavMesh("NavMeshTitan", tipoTitan, NavMeshTitanAsset);
         var jugador = GameObject.FindGameObjectWithTag("Player");
         if (jugador == null) throw new System.Exception("MapaV1 no tiene un objeto con tag Player.");
 
-        var puntoNemesis = PuntoEnNavMesh(jugador.transform.position, 40f);
-        var instanciaNemesis = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PrefabNemesis));
-        instanciaNemesis.transform.position = puntoNemesis;
-        var instanciaTitan = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PrefabTitan));
-        instanciaTitan.transform.position = PuntoTitan(jugador.transform.position);
+        var puntoNemesis = PuntoEnNavMesh(jugador.transform.position, 0, 8f, 40f, 30f, 55f);
+        var instanciaNemesis = Instanciar(PrefabNemesis, puntoNemesis, jugador.transform);
+        var puntoTitan = PuntoEnNavMesh(jugador.transform.position, tipoTitan, 60f, 120f, 80f, 170f);
+        var instanciaTitan = Instanciar(PrefabTitan, puntoTitan, jugador.transform);
 
         EditorSceneManager.MarkSceneDirty(escena);
         int triangulos = NavMesh.CalculateTriangulation().indices.Length / 3;
-        string informe = "Nemesis humanoid en " + puntoNemesis + "\nTitan en " + instanciaTitan.transform.position
+        string informe = "Nemesis humanoid en " + puntoNemesis + "\nTitan (agente " + tipoTitan + ") en " + puntoTitan
             + "\nNavMesh triangulos=" + triangulos + " superficie=" + superficie.name + "\n";
         EditorSceneManager.SaveScene(escena);
         AssetDatabase.SaveAssets();
-        AssetDatabase.ForceReserializeAssets(new[] { Escena, NavMeshAsset });
+        AssetDatabase.ForceReserializeAssets(new[] { Escena, NavMeshAsset, NavMeshTitanAsset });
         Directory.CreateDirectory("Logs");
         File.WriteAllText("Logs/enemigos-setup.txt", informe);
         Debug.Log("Enemigos configurados. NavMesh triángulos: " + triangulos);
@@ -206,11 +214,11 @@ public static class ConfigurarEnemigos
         return root;
     }
 
-    static GameObject CrearTitan(RuntimeAnimatorController controller, AudioClip pisada)
+    static GameObject CrearTitan(RuntimeAnimatorController controller, AudioClip pisada, int tipoTitan)
     {
         var root = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Biker));
         root.name = "Titan";
-        root.transform.localScale = Vector3.one * 20f;
+        root.transform.localScale = Vector3.one * EscalaTitan;
         foreach (var colision in root.GetComponentsInChildren<Collider>())
             Object.DestroyImmediate(colision);
         var animator = root.GetComponent<Animator>();
@@ -218,12 +226,23 @@ public static class ConfigurarEnemigos
         animator.applyRootMotion = false;
         animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         var acecho = root.AddComponent<EnemigoAcechador>();
-        acecho.usarNavMesh = false;
+        acecho.usarNavMesh = true;
         acecho.velocidadCaminar = 1.5f;
         acecho.velocidadCorrer = 3.2f;
         acecho.umbralCorrer = 40f;
         acecho.pisadaPesada = pisada;
         acecho.volumenPisada = 1f;
+        var agente = root.AddComponent<NavMeshAgent>();
+        agente.agentTypeID = tipoTitan;
+        // Radio y altura del NavMeshAgent son locales: la escala ×20 los multiplica.
+        agente.radius = RadioTitan / EscalaTitan;
+        agente.height = AlturaTitan / EscalaTitan;
+        agente.speed = 1.5f;
+        agente.angularSpeed = 90f;
+        agente.acceleration = 4f;
+        agente.stoppingDistance = 2f;
+        agente.baseOffset = 0f;
+        agente.enabled = false;
         CuerpoFisico(root, 0.35f, 2f, 25f);
         return root;
     }
@@ -317,19 +336,49 @@ public static class ConfigurarEnemigos
         }
     }
 
-    static NavMeshSurface HornearNavMesh()
+    static int TipoAgenteTitan()
     {
-        IgnorarTriggersDelHorneado();
-        var previo = Object.FindFirstObjectByType<NavMeshSurface>();
-        var superficie = previo != null ? previo : new GameObject("NavMeshCiudad").AddComponent<NavMeshSurface>();
-        superficie.agentTypeID = 0;
+        int indice = -1;
+        for (int i = 0; i < NavMesh.GetSettingsCount(); i++)
+            if (NavMesh.GetSettingsNameFromID(NavMesh.GetSettingsByIndex(i).agentTypeID) == AgenteTitan) indice = i;
+        if (indice < 0)
+        {
+            // Mismo flujo que el botón + de Navigation > Agents.
+            NavMesh.CreateSettings();
+            indice = NavMesh.GetSettingsCount() - 1;
+        }
+
+        var ajustes = new SerializedObject(Unsupported.GetSerializedAssetInterfaceSingleton("NavMeshProjectSettings"));
+        var nombres = ajustes.FindProperty("m_SettingNames");
+        if (nombres.arraySize <= indice) nombres.arraySize = indice + 1;
+        nombres.GetArrayElementAtIndex(indice).stringValue = AgenteTitan;
+        var agente = ajustes.FindProperty("m_Settings").GetArrayElementAtIndex(indice);
+        agente.FindPropertyRelative("agentRadius").floatValue = RadioTitan;
+        agente.FindPropertyRelative("agentHeight").floatValue = AlturaTitan;
+        agente.FindPropertyRelative("agentSlope").floatValue = 45f;
+        agente.FindPropertyRelative("agentClimb").floatValue = 2f;
+        agente.FindPropertyRelative("minRegionArea").floatValue = 20f;
+        ajustes.ApplyModifiedPropertiesWithoutUndo();
+        AssetDatabase.SaveAssets();
+
+        int id = agente.FindPropertyRelative("agentTypeID").intValue;
+        if (NavMesh.GetSettingsNameFromID(id) != AgenteTitan)
+            throw new System.Exception("No se pudo registrar el tipo de agente " + AgenteTitan + ".");
+        return id;
+    }
+
+    static NavMeshSurface HornearNavMesh(string nombre, int agentTypeID, string ruta)
+    {
+        var objeto = GameObject.Find(nombre);
+        var superficie = objeto != null ? objeto.GetComponent<NavMeshSurface>() : new GameObject(nombre).AddComponent<NavMeshSurface>();
+        superficie.agentTypeID = agentTypeID;
         superficie.collectObjects = CollectObjects.All;
         superficie.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
         superficie.navMeshData = null;
         superficie.BuildNavMesh();
         if (NavMesh.CalculateTriangulation().vertices.Length == 0)
             throw new System.Exception("El NavMesh quedó vacío. Las calles no aportaron colliders.");
-        GuardarNavMesh(superficie);
+        GuardarNavMesh(superficie, ruta);
         return superficie;
     }
 
@@ -351,17 +400,26 @@ public static class ConfigurarEnemigos
         modificador.ignoreFromBuild = true;
     }
 
-    static void GuardarNavMesh(NavMeshSurface superficie)
+    static void GuardarNavMesh(NavMeshSurface superficie, string ruta)
     {
         Directory.CreateDirectory("Assets/Scenes/MapaV1");
         var datos = superficie.navMeshData;
         if (datos == null) throw new System.Exception("BuildNavMesh no produjo NavMeshData.");
-        var previo = AssetDatabase.LoadAssetAtPath<NavMeshData>(NavMeshAsset);
+        var previo = AssetDatabase.LoadAssetAtPath<NavMeshData>(ruta);
         if (previo != null && previo != datos)
-            AssetDatabase.DeleteAsset(NavMeshAsset);
-        if (AssetDatabase.GetAssetPath(datos) != NavMeshAsset)
-            AssetDatabase.CreateAsset(datos, NavMeshAsset);
-        superficie.navMeshData = AssetDatabase.LoadAssetAtPath<NavMeshData>(NavMeshAsset);
+            AssetDatabase.DeleteAsset(ruta);
+        if (AssetDatabase.GetAssetPath(datos) != ruta)
+            AssetDatabase.CreateAsset(datos, ruta);
+        superficie.navMeshData = AssetDatabase.LoadAssetAtPath<NavMeshData>(ruta);
+    }
+
+    static GameObject Instanciar(string prefab, Vector3 posicion, Transform objetivo)
+    {
+        var instancia = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(prefab));
+        instancia.transform.position = posicion;
+        // Objetivo asignado en la escena, como en la demo del curso.
+        instancia.GetComponent<EnemigoAcechador>().objetivo = objetivo;
+        return instancia;
     }
 
     static void QuitarInstanciasPrevias()
@@ -373,45 +431,24 @@ public static class ConfigurarEnemigos
         }
     }
 
-    static Vector3 PuntoEnNavMesh(Vector3 origen, float distancia)
+    static Vector3 PuntoEnNavMesh(Vector3 origen, int agentTypeID, float busqueda, float distancia, float minimo, float maximo)
     {
-        if (!NavMesh.SamplePosition(origen, out var suelo, 8f, NavMesh.AllAreas))
-            throw new System.Exception("El jugador no está cerca del NavMesh.");
-        for (int i = 0; i < 24; i++)
+        var filtro = new NavMeshQueryFilter { agentTypeID = agentTypeID, areaMask = NavMesh.AllAreas };
+        if (!NavMesh.SamplePosition(origen, out var suelo, busqueda, filtro))
+            throw new System.Exception("El jugador no está cerca del NavMesh del agente " + agentTypeID + ".");
+        for (int i = 0; i < 36; i++)
         {
-            float angulo = i * Mathf.PI * 2f / 24f;
+            float angulo = i * Mathf.PI * 2f / 36f;
             var candidato = suelo.position + new Vector3(Mathf.Cos(angulo), 0f, Mathf.Sin(angulo)) * distancia;
-            if (!NavMesh.SamplePosition(candidato, out var hit, 12f, NavMesh.AllAreas)) continue;
+            if (!NavMesh.SamplePosition(candidato, out var hit, 20f, filtro)) continue;
             float separacion = Vector3.Distance(Plano(hit.position), Plano(suelo.position));
-            if (separacion < 30f || separacion > 55f) continue;
+            if (separacion < minimo || separacion > maximo) continue;
             var camino = new NavMeshPath();
-            if (NavMesh.CalculatePath(hit.position, suelo.position, NavMesh.AllAreas, camino)
+            if (NavMesh.CalculatePath(hit.position, suelo.position, filtro, camino)
                 && camino.status == NavMeshPathStatus.PathComplete)
                 return hit.position;
         }
-        throw new System.Exception("No hay un punto del NavMesh a ~40 m del jugador con camino.");
-    }
-
-    static Vector3 PuntoTitan(Vector3 jugador)
-    {
-        bool alguno = false;
-        var bounds = new Bounds(jugador, Vector3.zero);
-        foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
-        {
-            if (renderer.bounds.size.x > 400f || renderer.bounds.size.y > 200f) continue;
-            if (!alguno) { bounds = renderer.bounds; alguno = true; }
-            else bounds.Encapsulate(renderer.bounds);
-        }
-        var destino = jugador + new Vector3(0f, 0f, 150f);
-        if (alguno)
-        {
-            destino.x = Mathf.Clamp(destino.x, bounds.min.x + 4f, bounds.max.x - 4f);
-            destino.z = Mathf.Clamp(destino.z, bounds.min.z + 4f, bounds.max.z - 4f);
-            if (Vector3.Distance(Plano(destino), Plano(jugador)) < 100f)
-                destino = new Vector3(jugador.x, jugador.y, bounds.max.z - 4f);
-        }
-        destino.y = jugador.y;
-        return destino;
+        throw new System.Exception("No hay punto del NavMesh (agente " + agentTypeID + ") a ~" + distancia + " m del jugador con camino.");
     }
 
     static Vector3 Plano(Vector3 v) => new Vector3(v.x, 0f, v.z);

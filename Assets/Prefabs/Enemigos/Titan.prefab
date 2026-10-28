@@ -188,6 +188,9 @@ PrefabInstance:
       addedObject: {fileID: 6464628407166522635}
     - targetCorrespondingSourceObject: {fileID: 172216, guid: b4587275bd8858843b068385a1cb3677, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 9072747434129576158}
+    - targetCorrespondingSourceObject: {fileID: 172216, guid: b4587275bd8858843b068385a1cb3677, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 8564617393970515937}
   m_SourcePrefab: {fileID: 100100000, guid: b4587275bd8858843b068385a1cb3677, type: 3}
 --- !u!1 &5107244951816811476 stripped
@@ -207,13 +210,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 495a9d107574c41f4a3c2c573b2e0877, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemigoAcechador
-  usarNavMesh: 0
+  objetivo: {fileID: 0}
+  usarNavMesh: 1
+  alcanceDestino: 60
   velocidadCaminar: 1.5
   velocidadCorrer: 3.2
   umbralCorrer: 40
   retrasoAparicion: 5
   pisadaPesada: {fileID: 8300000, guid: 72f526a6a9890f643a88e85a61c86c8a, type: 3}
   volumenPisada: 1
+--- !u!195 &9072747434129576158
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5107244951816811476}
+  m_Enabled: 0
+  m_AgentTypeID: -1372625422
+  m_Radius: 0.15
+  m_Speed: 1.5
+  m_Acceleration: 4
+  avoidancePriority: 50
+  m_AngularSpeed: 90
+  m_StoppingDistance: 2
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 0.4
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
 --- !u!54 &8564617393970515937
 Rigidbody:
   m_ObjectHideFlags: 0

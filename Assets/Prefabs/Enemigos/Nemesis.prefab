@@ -526,7 +526,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 495a9d107574c41f4a3c2c573b2e0877, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemigoAcechador
+  objetivo: {fileID: 0}
   usarNavMesh: 1
+  alcanceDestino: 60
   velocidadCaminar: 2.2
   velocidadCorrer: 4.6
   umbralCorrer: 8
