@@ -1,0 +1,160 @@
+{
+  "materiales": [
+    {
+      "nombre": "em9001_head_1",
+      "color": "",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        0.754685,
+        0.413329,
+        0.611366,
+        1.0
+      ]
+    },
+    {
+      "nombre": "em9001_head_eye",
+      "color": "nemesis_0.png",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9001_head_teeth",
+      "color": "nemesis_0.png",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9001_head",
+      "color": "nemesis_0.png",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9000_engine_glow",
+      "color": "",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        0.976312,
+        0.68632,
+        0.601678,
+        1.0
+      ]
+    },
+    {
+      "nombre": "material_0",
+      "color": "nemesis_1.png",
+      "normal": "nemesis_3.png",
+      "emision": "nemesis_1.png",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9000_engine_1",
+      "color": "nemesis_1.png",
+      "normal": "nemesis_3.png",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9000_body00",
+      "color": "nemesis_4.png",
+      "normal": "nemesis_5.png",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9000_body00_1",
+      "color": "",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        0.692782,
+        0.447012,
+        0.985107,
+        1.0
+      ]
+    },
+    {
+      "nombre": "em9000_body01_nails",
+      "color": "nemesis_6.png",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9000_body01_skin",
+      "color": "nemesis_0.png",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9000_body01",
+      "color": "nemesis_6.png",
+      "normal": "nemesis_7.png",
+      "emision": "",
+      "factor": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "nombre": "em9000_body01_1",
+      "color": "",
+      "normal": "",
+      "emision": "",
+      "factor": [
+        0.787167,
+        0.559601,
+        0.44895,
+        1.0
+      ]
+    }
+  ]
+}

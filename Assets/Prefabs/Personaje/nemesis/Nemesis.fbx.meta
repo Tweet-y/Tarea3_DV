@@ -379,7 +379,7 @@ ModelImporter:
     - name: Bip01_L_UpperArm
       parentName: 
       position: {x: -0.27108487, y: 0.0000005993061, z: -0.00000085919305}
-      rotation: {x: -0.69636375, y: -0.12278785, z: 0.12278385, w: 0.6963654}
+      rotation: {x: -0.69034433, y: 0.15304694, z: -0.15305042, w: 0.6903455}
       scale: {x: 1, y: 1.0000001, z: 1}
     - name: Bip01_L_Elbow
       parentName: 
@@ -394,7 +394,7 @@ ModelImporter:
     - name: Bip01_L_Forearm
       parentName: 
       position: {x: -0.4025691, y: -0.0000013933019, z: -0.0000023376197}
-      rotation: {x: -0.0000012261639, y: -0.0000010513713, z: 0.17365204, w: 0.9848071}
+      rotation: {x: -0.0000007748604, y: -0.000002592802, z: 0.000003837049, w: 1}
       scale: {x: 0.99999994, y: 1.0000001, z: 1}
     - name: Bip01_L_Hand
       parentName: 
@@ -724,7 +724,7 @@ ModelImporter:
     - name: Bip01_R_UpperArm
       parentName: 
       position: {x: -0.271085, y: 0.000001213979, z: 0.00000087453066}
-      rotation: {x: 0.6963614, y: 0.12278616, z: 0.12278512, w: 0.6963679}
+      rotation: {x: 0.6903412, y: -0.15304498, z: -0.15305068, w: 0.69034904}
       scale: {x: 0.99999994, y: 1, z: 1}
     - name: Bip01_R_Elbow
       parentName: 
@@ -739,7 +739,7 @@ ModelImporter:
     - name: Bip01_R_Forearm
       parentName: 
       position: {x: -0.40256906, y: 0.00000018926085, z: 0.0000015269034}
-      rotation: {x: 0.0000080714035, y: 0.000001181758, z: 0.17365041, w: 0.9848074}
+      rotation: {x: 0.000007778406, y: 0.0000014901161, z: 0.0000023841858, w: 1}
       scale: {x: 0.9999999, y: 0.99999994, z: 1}
     - name: Bip01_R_Hand
       parentName: 

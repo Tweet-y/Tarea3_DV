@@ -43,6 +43,10 @@ public static class ConfigurarEnemigos
     const string Controller = "Assets/Starter Assets/Runtime/ThirdPersonController/Character/Animations/StarterAssetsThirdPerson.controller";
     const string Pisada = "Assets/Starter Assets/Runtime/ThirdPersonController/Character/Sfx/Player_Footstep_01.wav";
     const float AlturaNemesis = 2.6f;
+    const string Texturas = "Assets/Prefabs/Personaje/nemesis/Texturas/";
+
+    [System.Serializable] class MaterialGltf { public string nombre, color, normal, emision; public float[] factor; }
+    [System.Serializable] class MaterialesGltf { public MaterialGltf[] materiales; }
 
     static readonly (string humano, string hueso)[] Huesos =
     {
@@ -140,7 +144,18 @@ public static class ConfigurarEnemigos
             throw new System.Exception("El avatar Humanoid de Nemesis no es válido. Revisa el mapeo Bip01.");
     }
 
-    static HumanDescription DescripcionHumana(GameObject modelo)
+    static HumanDescription DescripcionHumana(GameObject asset)
+    {
+        // El bind pose de Nemesis es una A-pose (brazos 45° abajo). Mecanim toma el esqueleto
+        // de la descripción como T-pose: sin enderezar los brazos, las animaciones los bajan 45°
+        // de más y atraviesan el torso. Mismo arreglo que RecrearRigCJ.
+        var modelo = Object.Instantiate(asset);
+        modelo.name = asset.name;
+        try { return DescripcionEnTPose(modelo); }
+        finally { Object.DestroyImmediate(modelo); }
+    }
+
+    static HumanDescription DescripcionEnTPose(GameObject modelo)
     {
         var porNombre = modelo.GetComponentsInChildren<Transform>(true).ToDictionary(t => t.name, t => t);
         var humanos = new List<HumanBone>();
@@ -154,6 +169,17 @@ public static class ConfigurarEnemigos
                 boneName = hueso,
                 limit = new HumanLimit { useDefaultValues = true }
             });
+        }
+
+        var pelvis = porNombre["Bip01_Pelvis"];
+        foreach (var lado in new[] { "L", "R" })
+        {
+            var brazo = porNombre["Bip01_" + lado + "_UpperArm"];
+            var antebrazo = porNombre["Bip01_" + lado + "_Forearm"];
+            var mano = porNombre["Bip01_" + lado + "_Hand"];
+            var afuera = Vector3.Project(brazo.position - pelvis.position, modelo.transform.right).normalized;
+            Enderezar(brazo, antebrazo.position, afuera);
+            Enderezar(antebrazo, mano.position, afuera);
         }
 
         var esqueleto = new List<SkeletonBone>();
@@ -181,6 +207,11 @@ public static class ConfigurarEnemigos
             feetSpacing = 0f,
             hasTranslationDoF = false
         };
+    }
+
+    static void Enderezar(Transform hueso, Vector3 hijo, Vector3 direccion)
+    {
+        hueso.rotation = Quaternion.FromToRotation(hijo - hueso.position, direccion) * hueso.rotation;
     }
 
     static GameObject CrearNemesis(RuntimeAnimatorController controller, AudioClip pisada)
@@ -307,8 +338,13 @@ public static class ConfigurarEnemigos
     static void AplicarUrp(GameObject root)
     {
         var shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null) return;
+        if (shader == null) throw new System.Exception("No está el shader URP/Lit.");
+        var json = AssetDatabase.LoadAssetAtPath<TextAsset>(Texturas + "materiales.json");
+        if (json == null) throw new System.Exception("Falta " + Texturas + "materiales.json. Corre Tools/extraer_texturas_nemesis.py.");
+        var gltf = JsonUtility.FromJson<MaterialesGltf>(json.text).materiales.ToDictionary(m => m.nombre);
+
         Directory.CreateDirectory("Assets/Prefabs/Personaje/nemesis/Materiales");
+        int sinTextura = 0;
         foreach (var renderer in root.GetComponentsInChildren<Renderer>())
         {
             var materiales = renderer.sharedMaterials;
@@ -324,16 +360,43 @@ public static class ConfigurarEnemigos
                     AssetDatabase.CreateAsset(material, ruta);
                 }
                 material.shader = shader;
-                var textura = origen.mainTexture != null ? origen.mainTexture : origen.GetTexture("_BaseMap");
-                if (textura != null)
-                {
-                    material.SetTexture("_BaseMap", textura);
-                    material.SetTexture("_MainTex", textura);
-                }
+                if (gltf.TryGetValue(origen.name, out var datos)) Texturizar(material, datos);
+                else sinTextura++;
+                EditorUtility.SetDirty(material);
                 materiales[i] = material;
             }
             renderer.sharedMaterials = materiales;
         }
+        if (sinTextura > 0) Debug.LogWarning(sinTextura + " materiales de Nemesis sin entrada en materiales.json.");
+    }
+
+    static void Texturizar(Material material, MaterialGltf datos)
+    {
+        var f = datos.factor != null && datos.factor.Length == 4 ? datos.factor : new[] { 1f, 1f, 1f, 1f };
+        material.SetColor("_BaseColor", new Color(f[0], f[1], f[2], f[3]));
+        material.SetTexture("_BaseMap", Textura(datos.color, false));
+        var normal = Textura(datos.normal, true);
+        material.SetTexture("_BumpMap", normal);
+        if (normal != null) material.EnableKeyword("_NORMALMAP"); else material.DisableKeyword("_NORMALMAP");
+        var emision = Textura(datos.emision, false);
+        material.SetTexture("_EmissionMap", emision);
+        material.SetColor("_EmissionColor", emision != null ? Color.white : Color.black);
+        if (emision != null) material.EnableKeyword("_EMISSION"); else material.DisableKeyword("_EMISSION");
+    }
+
+    static Texture2D Textura(string archivo, bool esNormal)
+    {
+        if (string.IsNullOrEmpty(archivo)) return null;
+        string ruta = Texturas + archivo;
+        var importer = (TextureImporter)AssetImporter.GetAtPath(ruta);
+        if (importer == null) throw new System.Exception("Falta la textura " + ruta + ".");
+        var tipo = esNormal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+        if (importer.textureType != tipo)
+        {
+            importer.textureType = tipo;
+            importer.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(ruta);
     }
 
     static int TipoAgenteTitan()

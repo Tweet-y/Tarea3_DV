@@ -21,9 +21,22 @@ public static class ValidarEnemigos
     static string informe = "";
     static bool posturaRevisada;
 
+    static string RutaValidar => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs", "validar-enemigos.txt"));
+
     static ValidarEnemigos()
     {
         if (SessionState.GetBool(Clave, false)) Registrar();
+        else EditorApplication.update += ValidarSiEstaPendiente;
+    }
+
+    // Igual que ConfigurarEnemigos: con el editor abierto, crear Logs/validar-enemigos.txt lanza la verificación.
+    static void ValidarSiEstaPendiente()
+    {
+        if (!File.Exists(RutaValidar)) return;
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) return;
+        EditorApplication.update -= ValidarSiEstaPendiente;
+        File.Delete(RutaValidar);
+        Ejecutar();
     }
 
     [MenuItem("Tools/Enemigos/Verificar")]
@@ -152,6 +165,17 @@ public static class ValidarEnemigos
 
         var agente = nemesis.GetComponent<NavMeshAgent>();
         Exigir(agente != null && agente.isOnNavMesh, "Nemesis está sobre el NavMesh.");
+
+        var materiales = nemesis.GetComponentsInChildren<Renderer>().SelectMany(r => r.sharedMaterials).Where(m => m != null).Distinct().ToArray();
+        var blancos = materiales.Where(m => m.GetTexture("_BaseMap") == null && m.GetColor("_BaseColor") == Color.white).Select(m => m.name).ToArray();
+        Exigir(materiales.Length > 0 && blancos.Length == 0, "Los materiales de Nemesis tienen textura o color (blancos: " + string.Join(", ", blancos) + ").");
+
+        // Con el avatar calibrado en A-pose los brazos bajan 45° de más y las manos cruzan el torso.
+        var animator = nemesis.GetComponent<Animator>();
+        var derecha = nemesis.transform.right;
+        float izquierda = Vector3.Dot(animator.GetBoneTransform(HumanBodyBones.LeftHand).position - caderas.position, -derecha);
+        float diestra = Vector3.Dot(animator.GetBoneTransform(HumanBodyBones.RightHand).position - caderas.position, derecha);
+        Exigir(izquierda > 0.2f && diestra > 0.2f, "Las manos quedan a los costados del torso (" + izquierda.ToString("0.00") + " / " + diestra.ToString("0.00") + " m).");
     }
 
     static float Distancia(Vector3 a, Vector3 b)
