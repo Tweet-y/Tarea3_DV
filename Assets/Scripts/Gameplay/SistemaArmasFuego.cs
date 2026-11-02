@@ -16,7 +16,7 @@ public static class SistemaArmasFuego
 
     private static void AlCargar(Scene escena, LoadSceneMode modo)
     {
-        if (escena.name != "MapaV1") return;
+        if (escena.name != ControladorMenus.EscenaJuego) return;
         Instalar();
     }
 

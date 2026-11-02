@@ -10,6 +10,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
     public EstadoMunicion Municion { get; private set; }
     public bool Equipada => modelo != null;
     public bool Apuntando { get; private set; }
+    public bool SolicitaApuntar => PuedeActuar && Equipada && Municion != null && !Municion.Recargando && apuntar != null && apuntar.IsPressed();
     public float RecargaRestante { get; private set; }
     public float ImpactoHasta { get; private set; }
     public float Retroceso { get; private set; }
@@ -20,7 +21,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         get
         {
             var partida = ControladorPartidaBotellas.Instancia;
-            return enabled && Time.timeScale > 0f && partida != null &&
+            return enabled && !IntroduccionIsla.Activa && Time.timeScale > 0f && partida != null &&
                 partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso && !partida.EstaPausada;
         }
     }
@@ -35,6 +36,8 @@ public sealed class ControladorArmaFuego : MonoBehaviour
     private AudioClip click;
     private Camera camara;
     private Animator animador;
+    private StarterAssets.ThirdPersonController locomocion;
+    private CamaraApuntadoTerceraPersona camaraApuntado;
     private LineRenderer traza;
     private Material materialTraza;
     private Light luz;
@@ -56,6 +59,10 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         audioArma.spatialBlend = 0f;
         audioArma.volume = .5f;
         animador = GetComponentInChildren<Animator>();
+        locomocion = GetComponent<StarterAssets.ThirdPersonController>();
+        camaraApuntado = GetComponent<CamaraApuntadoTerceraPersona>();
+        if (camaraApuntado == null) camaraApuntado = gameObject.AddComponent<CamaraApuntadoTerceraPersona>();
+        camaraApuntado.Inicializar(this);
         click = CrearClick();
     }
 
@@ -67,11 +74,18 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         return accion;
     }
 
-    private void OnEnable() => acciones?.Enable();
+    private bool ConsultarApuntado() => SolicitaApuntar;
+    private void OnEnable()
+    {
+        acciones?.Enable();
+        if (locomocion != null) locomocion.ConsultaApuntado = ConsultarApuntado;
+    }
     private void OnDisable()
     {
         poseRifle?.Restaurar();
         acciones?.Disable();
+        if (locomocion != null) locomocion.ConsultaApuntado = null;
+        camaraApuntado?.Restablecer();
         Municion?.CancelarRecarga();
         RecargaRestante = 0f;
         Apuntando = false;
@@ -170,7 +184,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
                 audioArma.PlayOneShot(click, .8f);
             }
         }
-        Apuntando = apuntar.IsPressed() && !Municion.Recargando;
+        Apuntando = SolicitaApuntar;
         Retroceso = Mathf.MoveTowards(Retroceso, 0f, Time.deltaTime * 6f);
         if (Time.time >= efectoHasta) OcultarEfectos();
     }
@@ -183,9 +197,14 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         bool orientar = (Apuntando || fuego) && !Municion.Recargando && frente.sqrMagnitude > .01f;
         if (orientar)
         {
-            if (!siguiendoCamara) orientacionCuerpo = transform.rotation;
-            orientacionCuerpo = Quaternion.RotateTowards(orientacionCuerpo, Quaternion.LookRotation(frente), 540f * Time.deltaTime);
-            transform.rotation = orientacionCuerpo;
+            if (Apuntando && locomocion != null && locomocion.EnModoApuntado)
+                orientacionCuerpo = transform.rotation;
+            else
+            {
+                if (!siguiendoCamara) orientacionCuerpo = transform.rotation;
+                orientacionCuerpo = Quaternion.RotateTowards(orientacionCuerpo, Quaternion.LookRotation(frente), 540f * Time.deltaTime);
+                transform.rotation = orientacionCuerpo;
+            }
         }
         siguiendoCamara = orientar;
         Vector3 direccion = orientar ? camara.transform.forward : transform.forward;

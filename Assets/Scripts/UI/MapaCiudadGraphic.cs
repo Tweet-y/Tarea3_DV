@@ -26,6 +26,7 @@ public sealed class MapaCiudadGraphic : MaskableGraphic
     private Vector2 OrigenVista => centroVista - Vector2.one * LadoVisible * .5f;
     private float siguiente;
     private bool ampliado;
+    public bool Ampliado => ampliado;
 
     public void Inicializar(ControladorPartidaBotellas fuente, RectTransform marcoExterior = null)
     {
@@ -93,6 +94,7 @@ public sealed class MapaCiudadGraphic : MaskableGraphic
     }
     private void Update()
     {
+        if (IntroduccionIsla.Activa) return;
         if (partida == null) return;
         if (partida.Estado != ControladorPartidaBotellas.Resultado.EnCurso) { gameObject.SetActive(false); return; }
         if (!partida.EstaPausada && Keyboard.current != null && Keyboard.current.mKey.wasPressedThisFrame)

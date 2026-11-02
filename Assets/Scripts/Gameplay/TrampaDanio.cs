@@ -119,6 +119,7 @@ public class TrampaDanio : MonoBehaviour
 
     private void ProcesarImpacto(GameObject jugadorObj)
     {
+        if (IntroduccionIsla.Activa) return;
         if (Time.time < _ultimoTiempoDanio + tiempoEnfriamiento) return;
         _ultimoTiempoDanio = Time.time;
 

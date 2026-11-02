@@ -10,7 +10,7 @@ using UnityEngine.UI;
 public sealed class ControladorMenus : MonoBehaviour
 {
     public const string EscenaMenu = "MenuInicio";
-    public const string EscenaJuego = "MapaV1";
+    public const string EscenaJuego = "MapaV2";
     private static readonly Color Verde = new Color32(170, 198, 99, 255);
     private static readonly Color Tinta = new Color32(17, 21, 20, 255);
     private CanvasGroup opciones;
@@ -37,6 +37,7 @@ public sealed class ControladorMenus : MonoBehaviour
                 case "Continuar": boton.onClick.AddListener(() => EjecutarBoton(ContinuarPartida)); break;
                 case "Ir al menú principal": boton.onClick.AddListener(() => EjecutarBoton(() => Cargar(EscenaMenu))); break;
                 case "Salir": boton.onClick.AddListener(() => EjecutarBoton(Salir)); break;
+                case "AyudaHUD": boton.onClick.AddListener(() => EjecutarBoton(AlternarAyudaHUD)); break;
             }
         }
     }
@@ -113,11 +114,13 @@ public sealed class ControladorMenus : MonoBehaviour
         letras.ConSombra = true;
         letras.raycastTarget = false;
         var botones = Rect(transform, "BotonesPausa", new Vector2(.5f, .43f), new Vector2(.5f, .43f));
-        botones.sizeDelta = new Vector2(300, 190);
-        primerBoton = BotonPixel(botones, "Continuar", 64, ContinuarPartida);
-        BotonPixel(botones, "Nuevo juego", 0, () => Cargar(EscenaJuego));
-        BotonPixel(botones, "Salir", -64, Salir);
-        var pista = Texto(botones, "Atajo", "ESC PARA CONTINUAR", 0, -119, 400, 24, 15, new Color32(207, 195, 212, 255));
+        botones.sizeDelta = new Vector2(300, 254);
+        primerBoton = BotonPixel(botones, "Continuar", 96, ContinuarPartida);
+        var ayuda = BotonPixel(botones, TextoAyudaHUD(), 32, AlternarAyudaHUD, 360);
+        ayuda.name = "AyudaHUD";
+        BotonPixel(botones, "Nuevo juego", -32, () => Cargar(EscenaJuego));
+        BotonPixel(botones, "Salir", -96, Salir);
+        var pista = Texto(botones, "Atajo", "ESC PARA CONTINUAR", 0, -151, 400, 24, 15, new Color32(207, 195, 212, 255));
         pista.alignment = TextAlignmentOptions.Center;
         CrearCarga();
         if (Application.isPlaying) StartCoroutine(Seleccionar(primerBoton));
@@ -126,6 +129,17 @@ public sealed class ControladorMenus : MonoBehaviour
     private static void ContinuarPartida()
     {
         if (ControladorPartidaBotellas.Instancia != null) ControladorPartidaBotellas.Instancia.Continuar();
+    }
+
+    private static string TextoAyudaHUD() => ControladorGameplayHUD.IndicacionesVisibles ? "Ocultar indicaciones" : "Mostrar indicaciones";
+
+    private void AlternarAyudaHUD()
+    {
+        ControladorGameplayHUD.AlternarIndicaciones();
+        var botones = GetComponentsInChildren<Button>(true);
+        foreach (var boton in botones)
+            if (boton.name == "AyudaHUD")
+                boton.GetComponentInChildren<TextoPixelGraphic>().Contenido = TextoAyudaHUD().ToUpperInvariant();
     }
 
     private Button BotonPixel(Transform padre, string valor, float y, UnityEngine.Events.UnityAction accion, float ancho = 300)
