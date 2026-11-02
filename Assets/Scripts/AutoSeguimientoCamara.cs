@@ -23,22 +23,26 @@ public class AutoSeguimientoCamara : MonoBehaviour
     [ContextMenu("Vincular Objetivo")]
     public void VincularObjetivo()
     {
-        // 1. Si no se asignó un objetivo, buscar PlayerCameraRoot en la escena
-        if (objetivoSeguimiento == null)
+        // Resolver desde el jugador activo: un modelo de prueba o CJ desactivado no debe capturar la camara.
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
         {
-            GameObject rootObj = GameObject.Find("PlayerCameraRoot");
-            if (rootObj != null)
+            var movimiento = player.GetComponent<StarterAssets.ThirdPersonController>();
+            if (movimiento != null && movimiento.CinemachineCameraTarget != null)
             {
-                objetivoSeguimiento = rootObj.transform;
+                objetivoSeguimiento = movimiento.CinemachineCameraTarget.transform;
             }
             else
             {
-                GameObject player = GameObject.FindGameObjectWithTag("Player");
-                if (player != null)
+                objetivoSeguimiento = player.transform.Find("PlayerCameraRoot");
+                if (objetivoSeguimiento == null)
                 {
-                    Transform rootChild = player.transform.Find("PlayerCameraRoot");
-                    objetivoSeguimiento = rootChild != null ? rootChild : player.transform;
+                    var root = new GameObject("PlayerCameraRoot");
+                    root.transform.SetParent(player.transform, false);
+                    root.transform.localPosition = new Vector3(0, 1.575f, 0);
+                    objetivoSeguimiento = root.transform;
                 }
+                if (movimiento != null) movimiento.CinemachineCameraTarget = objetivoSeguimiento.gameObject;
             }
         }
 

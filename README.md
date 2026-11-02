@@ -25,8 +25,9 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 - El jugador se controla con el **Input System** y la base de `ThirdPersonController` (Starter Assets): movimiento, cámara y salto con teclado, ratón y gamepad.
 
 ### Personaje animado
-- Personaje en tercera persona a partir de `ThirdPersonController` y los prefabs en `Assets/Prefabs/Personaje`.
-- Animaciones de locomoción e idle en `Assets/Animaciones/Personajes` (`CJLocomotionAnimation`).
+- Jugador **curao_principal**, basado en el personaje Synty `Character_ToplessMale_01`, con `ThirdPersonController`, Input System y cápsula de movimiento. Prefab: `Assets/Prefabs/curao_principal.prefab`.
+- Controlador `Assets/Animaciones/Personajes/CuraoPrincipalLocomotion.controller`: reposo, caminar, correr, sprint, salto, caída y aterrizaje de **Kevin Iglesias / Basic Motions**, con retargeting Humanoid y root motion desactivado.
+- La cámara Cinemachine sigue `PlayerCameraRoot` del jugador activo. Se conservan el HUD, el mapa, las botellas, la pausa, el daño por caídas, los objetivos de enemigos y la pose procedural del rifle. `AnimacionCuraoPrincipal` conserva los sonidos de pasos y aterrizaje.
 
 ### Gestión de escenas
 - Una escena de menú con botones que cargan el nivel de forma **asíncrona**, con pantalla de progreso.
@@ -42,11 +43,23 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 - **Salud y ebriedad:** recoger botellas objetivo aumenta la ebriedad y reduce la salud; las azules recuperan salud. La ebriedad también aumenta con el tiempo a **0,001 / 1,20 = 0,00083333 por segundo**, dando un 20 % más de margen temporal con los mismos daños y curaciones. Los obstáculos aplican daño mediante `TrampaDanio`.
 - **Victoria y derrota:** el nivel detecta ambas condiciones y abre la pantalla de resumen antes de volver al menú. Morir por los golpes de un enemigo muestra «Te atraparon».
 
+### Armas de fuego
+
+- Rifle **Synty Battle Royale `SM_Wep_Rifle_Assault_03`**, recogible junto al punto de inicio. Los cargadores de munición aparecen junto al inicio y en varios sectores del recorrido.
+- **E:** recoger rifle o munición; **clic izquierdo mantenido:** disparo automático; **clic derecho:** apuntar; **R:** recargar; **G:** soltar el rifle.
+- **Mando:** X para recoger, RT para disparar, LB para apuntar, Y para recargar y cruceta abajo para soltar. LB evita interferir con el sprint del gatillo izquierdo.
+- Cargador de **30**, reserva inicial de **120** y maxima de **240**; cajas de **60** balas. Cadencia de **8 disparos/s**, recarga de **2,2 s** y alcance de **150 m**. La municion se conserva al soltar y volver a recoger; una recarga interrumpida no transfiere balas. Con el cargador vacio, disparar inicia la recarga si queda reserva.
+- Mira, confirmacion de impacto, contador de municion, progreso de recarga, retroceso visual, fogonazo y sonido. Pose de brazos y extraccion del cargador mediante animacion procedural sobre el rig Humanoid del jugador.
+- Disparos hitscan: comprueban tanto la vista de la cámara como la trayectoria desde el cuerpo y el cañón, respetando paredes y cobertura. Daño de **25**, doble en la cabeza. Nemesis tiene **175** de vida y el Titán **1200**; al morir dejan de perseguir y hacer daño. Las botellas siguen siendo el objetivo de victoria.
+- Pausar congela la recarga y bloquea disparos y recogidas. Al terminar la partida se oculta el HUD de armas. El sistema se reinstala al cargar una partida nueva.
+- Ajustes y referencia al prefab original: `Assets/Resources/Armas/RifleAsalto03.asset`. La instalacion se hace al cargar `MapaV1`, sin tener que ejecutar configuradores ni modificar los assets de Synty.
+- **Prueba integrada:** `Tools > Armas > Verificar sistema completo`, con las escenas guardadas y Play detenido. Comprueba recogida, impacto, cadencia, paredes, pausa, recarga, municion, soltar y recoger, y dano letal; genera `Logs/armas-fuego-verificadas.txt`. `Tools/PruebasMunicion.cs` prueba la logica de municion sin Unity.
+
 ### Enemigos
 - **Nemesis** aparece a unos 40 m del jugador, espera 5 s y lo persigue por el NavMesh. Camina a 2,2 m/s y corre a 4,6 m/s si está a más de 8 m (el sprint del jugador es 5,335, así que se le puede escapar). El golpe por contacto quita un 20 % de vida cada 1,5 s y empuja con fuerza 12.
 - **Titán** es el personaje Synty `Character_Biker_01` a escala 20 (unos 36 m). Usa NavMesh con su propio tipo de agente `Titan` (radio 3 m, altura 8 m) y su propia `NavMeshSurface` (`NavMesh-Titan.asset`), igual que el jefe grande de la demo del curso: recorre las avenidas anchas y, si el jugador se mete en una calle angosta, lo espera en el punto de avenida más cercano. Camina a 1,5 m/s y corre a 3,2 m/s si está a más de 40 m: a paso normal (2,0) el jugador apenas se le escapa, y con sprint sí. Por debajo del clip de caminar la animación reproduce Walk más lento, para que los pies no patinen ni quede en idle. El golpe quita un 35 % cada 2 s y empuja con fuerza 25.
 - Ambos persiguen con `NavMeshAgent.SetDestination` (como `MovimientoSimpleNPC`). El campo `objetivo` de `EnemigoAcechador` se asigna en la escena; si queda vacío, se busca el objeto con tag `Player`.
-- Ambos reutilizan `StarterAssetsThirdPerson` (caminar, correr, idle). El daño es `TrampaDanio` con `repetirMientrasContacto`. Pausa y fin de partida (`Time.timeScale = 0`) los congelan. El jugador todavía no ataca.
+- Ambos reutilizan `StarterAssetsThirdPerson` (caminar, correr, idle). El daño es `TrampaDanio` con `repetirMientrasContacto`. Pausa y fin de partida (`Time.timeScale = 0`) los congelan. El jugador puede defenderse con el rifle recogible de Battle Royale.
 - **Configurar:** `Tools > Enemigos > Configurar` (o `Unity -batchmode -projectPath . -executeMethod ConfigurarEnemigos.Ejecutar -quit` con el editor cerrado). Antes, si hace falta regenerar el FBX: `blender --background --python Tools/convertir_nemesis.py`.
 - **Verificar:** `Tools > Enemigos > Verificar` escribe `Logs/enemigos-validados.txt`.
 - **Créditos:** modelo de Nemesis por **toheed_zahid** en Sketchfab, licencia **CC-BY-4.0**. Hay que mantener esta atribución. El titán sale del pack Synty Polygon City Characters del material del curso.
