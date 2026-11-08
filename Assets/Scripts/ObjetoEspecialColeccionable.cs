@@ -162,6 +162,7 @@ public class ObjetoEspecialColeccionable : MonoBehaviour
 
     public void Recoger(GameObject jugador)
     {
+        if (IntroduccionIsla.Activa) return;
         var partida = ControladorPartidaBotellas.Instancia;
         if (partida != null && (partida.EstaPausada || partida.Estado != ControladorPartidaBotellas.Resultado.EnCurso)) return;
         if (_yaRecogido || jugador == null) return;

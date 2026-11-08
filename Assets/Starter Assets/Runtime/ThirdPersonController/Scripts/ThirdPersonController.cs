@@ -20,6 +20,14 @@ namespace StarterAssets
 
         [Tooltip("Sprint speed of the character in m/s")]
         public float SprintSpeed = 5.335f;
+        [Header("Apuntado")]
+        [Min(.1f)] public float AimMoveSpeed = 1.45f;
+        [Range(.1f, 1f)] public float AimLookSensitivity = .65f;
+        // El sistema de armas consulta su input actual sin crear una dependencia hacia Assembly-CSharp.
+        public System.Func<bool> ConsultaApuntado { get; set; }
+        public bool EnModoApuntado { get; private set; }
+        private Vector3 _direccionApuntado;
+        private bool _animacionDireccional;
 
         [Tooltip("How fast the character turns to face movement direction")]
         [Range(0.0f, 0.3f)]
@@ -151,6 +159,15 @@ namespace StarterAssets
 #endif
 
             AssignAnimationIDs();
+            bool ejeX = false, ejeY = false, apuntado = false;
+            if (_hasAnimator)
+                foreach (var parametro in _animator.parameters)
+                {
+                    ejeX |= parametro.name == "MoveX";
+                    ejeY |= parametro.name == "MoveY";
+                    apuntado |= parametro.name == "Aiming";
+                }
+            _animacionDireccional = ejeX && ejeY && apuntado;
 
             // reset our timeouts on start
             _jumpTimeoutDelta = JumpTimeout;
@@ -208,8 +225,9 @@ namespace StarterAssets
                 //Don't multiply mouse input by Time.deltaTime;
                 float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
 
-                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier;
-                _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier;
+                float sensibilidad = EnModoApuntado ? AimLookSensitivity : 1f;
+                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier * sensibilidad;
+                _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier * sensibilidad;
             }
 
             // clamp our rotations so our values are limited 360 degrees
@@ -223,16 +241,24 @@ namespace StarterAssets
 
         private void Move()
         {
+            EnModoApuntado = ConsultaApuntado != null && ConsultaApuntado();
             Vector2 moveInput = Vector2.ClampMagnitude(_input.move, 1f);
             bool hasInput = moveInput.sqrMagnitude > 0.0025f;
             float inputMagnitude = hasInput ? (_input.analogMovement ? moveInput.magnitude : 1f) : 0f;
-            float targetSpeed = (_input.sprint ? SprintSpeed : MoveSpeed) * inputMagnitude;
+            float targetSpeed = (EnModoApuntado ? AimMoveSpeed : (_input.sprint ? SprintSpeed : MoveSpeed)) * inputMagnitude;
 
             // A finite braking distance avoids the long tail of exponential deceleration.
             float acceleration = Mathf.Max(0.01f, SpeedChangeRate) * (hasInput ? 1f : 2.5f);
             _speed = Mathf.MoveTowards(_speed, targetSpeed, acceleration * Time.deltaTime);
 
-            if (hasInput)
+            if (EnModoApuntado)
+            {
+                float cameraYaw = _mainCamera != null ? _mainCamera.transform.eulerAngles.y : transform.eulerAngles.y;
+                if (hasInput) _direccionApuntado = Quaternion.Euler(0, cameraYaw, 0) * new Vector3(moveInput.x, 0, moveInput.y).normalized;
+                float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, cameraYaw, ref _rotationVelocity, RotationSmoothTime);
+                transform.rotation = Quaternion.Euler(0, rotation, 0);
+            }
+            else if (hasInput)
             {
                 float cameraYaw = _mainCamera != null ? _mainCamera.transform.eulerAngles.y : transform.eulerAngles.y;
                 _targetRotation = Mathf.Atan2(moveInput.x, moveInput.y) * Mathf.Rad2Deg + cameraYaw;
@@ -245,7 +271,8 @@ namespace StarterAssets
             float turnAlignment = hasInput
                 ? Mathf.Clamp01(Mathf.Cos(Mathf.DeltaAngle(transform.eulerAngles.y, _targetRotation) * Mathf.Deg2Rad))
                 : 1f;
-            _controller.Move((transform.forward * (_speed * turnAlignment) +
+            Vector3 desplazamiento = EnModoApuntado ? _direccionApuntado * _speed : transform.forward * (_speed * turnAlignment);
+            _controller.Move((desplazamiento +
                 Vector3.up * _verticalVelocity) * Time.deltaTime);
             _animationBlend = new Vector2(_controller.velocity.x, _controller.velocity.z).magnitude;
 
@@ -254,6 +281,13 @@ namespace StarterAssets
             {
                 _animator.SetFloat(_animIDSpeed, _animationBlend);
                 _animator.SetFloat(_animIDMotionSpeed, 1f);
+                if (_animacionDireccional)
+                {
+                    Vector3 local = transform.InverseTransformDirection(Vector3.ProjectOnPlane(_controller.velocity, Vector3.up));
+                    _animator.SetBool("Aiming", EnModoApuntado);
+                    _animator.SetFloat("MoveX", Mathf.Clamp(local.x / AimMoveSpeed, -1, 1), .1f, Time.deltaTime);
+                    _animator.SetFloat("MoveY", Mathf.Clamp(local.z / AimMoveSpeed, -1, 1), .1f, Time.deltaTime);
+                }
             }
         }
 

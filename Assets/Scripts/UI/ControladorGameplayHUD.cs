@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 /// <summary>HUD compacto de cerveza, ebriedad y resistencia al desmayo.</summary>
 public sealed class ControladorGameplayHUD : MonoBehaviour
@@ -10,11 +11,31 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     private ControladorPartidaBotellas partida;
     private RectTransform ebriedadFill, vidaFill, icono;
     private TMP_Text contador, restantes, aviso, feedback, puntos, vidaEtiqueta;
+    private TMP_Text municion, nombreArma;
+    private GameObject imagenBotella, imagenArma, marcoRecarga;
+    private RectTransform rellenoRecarga;
     private float objetivoEbriedad, objetivoVida = 1f, visualEbriedad, visualVida = 1f;
     private float tiempoPickup;
     private RectTransform marcoMapa, vidaMapa, ebriedadMapa;
     private RectTransform objetivoInicial;
-    private float tiempoObjetivo = 12f;
+    private TMP_Text indicadorAyuda;
+    private MapaCiudadGraphic mapaCiudad;
+    private CanvasGroup visibilidadMapa;
+    private ControladorArmaFuego armaJugador;
+    private const string ClaveAyuda = "HUD.IndicacionesVisibles";
+    private static bool? ayudaVisible;
+    public static bool IndicacionesVisibles => ayudaVisible ??= PlayerPrefs.GetInt(ClaveAyuda, 1) != 0;
+
+    public static void AlternarIndicaciones()
+    {
+        ayudaVisible = !IndicacionesVisibles;
+        PlayerPrefs.SetInt(ClaveAyuda, ayudaVisible.Value ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ReiniciarAyuda() => ayudaVisible = null;
+    private Canvas lienzo;
     private readonly List<Material> materialesTexto = new List<Material>();
 
     public void Inicializar(ControladorPartidaBotellas fuente)
@@ -74,43 +95,51 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         scaler.matchWidthOrHeight = .5f;
         ConstruirMapa();
 
-        var root = Nodo(transform, "GameplayHUD", new Vector2(1, 1), new Vector2(-30, -26), new Vector2(280, 188));
+        var root = Nodo(transform, "GameplayHUD", new Vector2(1, 1), new Vector2(-30, -26), new Vector2(280, 332));
         root.pivot = new Vector2(1, 1);
         icono = Nodo(root, "BottleIcon", new Vector2(0, 1), Vector2.zero, new Vector2(88, 90));
         Caja(icono, "BlackFrame", Vector2.zero, new Vector2(88, 90), Color.black);
-        Caja(icono, "WhiteInset", new Vector2(4, -4), new Vector2(80, 82), Color.white);
+        Caja(icono, "WhiteInset", new Vector2(4, -4), new Vector2(80, 82), new Color32(210, 214, 209, 255));
         var botella = Nodo(icono, "BeerSilhouette", new Vector2(0, 1), new Vector2(13, -8), new Vector2(62, 74));
         botella.gameObject.AddComponent<BottleHudGraphic>().raycastTarget = false;
+        imagenBotella = botella.gameObject;
+        var rifle = Nodo(icono, "MiniaturaArma", new Vector2(0, 1), new Vector2(5, -5), new Vector2(78, 80));
+        rifle.gameObject.AddComponent<IconoRifleGraphic>().raycastTarget = false;
+        imagenArma = rifle.gameObject;
+        imagenArma.SetActive(false);
 
-        contador = Texto(root, "BottleCounter", $"00 / {partida.Total:00}", new Vector2(99, 0), new Vector2(181, 36), 34, Color.white);
-        Texto(root, "DrunkLabel", "EBRIEDAD", new Vector2(101, -40), new Vector2(179, 20), 17, Color.white);
-        ebriedadFill = Barra(root, "DrunkMeter", new Vector2(99, -63), new Vector2(181, 17), new Color32(205, 205, 205, 255));
-        vidaEtiqueta = Texto(root, "HealthLabel", "VIDA 100%", new Vector2(0, -98), new Vector2(280, 20), 17, Color.white);
-        vidaFill = Barra(root, "PlayerHealth", new Vector2(0, -120), new Vector2(280, 20), new Color32(188, 37, 45, 255));
-        restantes = Texto(root, "RemainingText", $"QUEDAN {partida.Total}", new Vector2(0, -146), new Vector2(280, 31), 29, new Color32(82, 142, 72, 255));
-        aviso = Texto(root, "DangerStatus", "SOBRIO", new Vector2(0, -180), new Vector2(280, 22), 17, Color.white);
-        puntos = Texto(root, "Score", "PUNTOS 0000", new Vector2(0, -207), new Vector2(280, 22), 17, Color.white);
-        feedback = Texto(root, "BottlePickupFeedback", "+1", new Vector2(48, -66), new Vector2(35, 26), 24, Color.white);
+        municion = Texto(root, "MunicionArma", "--", new Vector2(99, 0), new Vector2(181, 38), 30, Color.white);
+        nombreArma = Texto(root, "NombreArma", "SIN ARMA", new Vector2(99, -44), new Vector2(181, 22), 17, Color.white);
+        rellenoRecarga = Barra(root, "ProgresoRecarga", new Vector2(99, -76), new Vector2(181, 10), new Color32(232, 180, 68, 255));
+        marcoRecarga = rellenoRecarga.parent.parent.gameObject;
+        marcoRecarga.SetActive(false);
+        contador = Texto(root, "BottleCounter", $"BOTELLAS 00 / {partida.Total:00}", new Vector2(0, -104), new Vector2(280, 28), 24, Color.white);
+        vidaEtiqueta = Texto(root, "HealthLabel", "VIDA 100%", new Vector2(0, -142), new Vector2(280, 20), 17, Color.white);
+        vidaFill = Barra(root, "PlayerHealth", new Vector2(0, -166), new Vector2(280, 20), new Color32(188, 37, 45, 255));
+        Texto(root, "DrunkLabel", "EBRIEDAD", new Vector2(0, -198), new Vector2(280, 18), 17, Color.white);
+        ebriedadFill = Barra(root, "DrunkMeter", new Vector2(0, -220), new Vector2(280, 16), new Color32(205, 205, 205, 255));
+        restantes = Texto(root, "RemainingText", $"QUEDAN {partida.Total}", new Vector2(0, -246), new Vector2(280, 28), 24, new Color32(82, 142, 72, 255));
+        aviso = Texto(root, "DangerStatus", "SOBRIO", new Vector2(0, -280), new Vector2(280, 20), 16, Color.white);
+        puntos = Texto(root, "Score", "PUNTOS 0000", new Vector2(0, -306), new Vector2(280, 22), 17, Color.white);
+        feedback = Texto(root, "BottlePickupFeedback", "+1", new Vector2(0, -104), new Vector2(40, 26), 20, Color.white);
         feedback.gameObject.SetActive(false);
 
-        objetivoInicial = Nodo(transform, "ObjetivoInicial", Vector2.zero,
-            Vector2.zero, Vector2.zero);
-        objetivoInicial.pivot = new Vector2(.5f, 0f);
-        objetivoInicial.anchorMin = Vector2.zero;
-        objetivoInicial.anchorMax = new Vector2(1f, 0f);
-        objetivoInicial.offsetMin = new Vector2(304, 42);
-        objetivoInicial.offsetMax = new Vector2(-24, 206);
+        indicadorAyuda = Texto(transform, "AtajoIndicaciones", "", new Vector2(24, -24), new Vector2(450, 28), 16, new Color32(250, 215, 74, 255));
+        indicadorAyuda.alignment = TextAlignmentOptions.Left;
+        objetivoInicial = Nodo(transform, "ObjetivoInicial", new Vector2(0, 1),
+            new Vector2(24, -66), new Vector2(430, 268));
         var fondoObjetivo = objetivoInicial.gameObject.AddComponent<Image>();
         fondoObjetivo.color = new Color32(17, 21, 20, 225);
         fondoObjetivo.raycastTarget = false;
         var objetivo = Texto(objetivoInicial, "TextoObjetivo",
-            "Recoge todas las botellas: suben ebriedad y reducen vida.\nAzules: +8% de vida. Cuidado al caer.\nWASD: mover · Ratón: cámara\nEspacio: saltar · Shift: correr · ESC: pausa\nM: mapa · Explora para revelar zonas.",
-            Vector2.zero, Vector2.zero, 20, Color.white);
+            "OBJETIVO\nConsigue todo el alcohol de la isla.\nLas botellas azules recuperan vida.\n\nCONTROLES\nWASD: mover · Espacio: saltar · Shift: correr\nRatón: cámara · M: mapa · Esc: pausa\nE: recoger · Clic izq.: disparar\nClic der.: apuntar · R: recargar · G: soltar",
+            Vector2.zero, Vector2.zero, 18, Color.white);
         objetivo.rectTransform.anchorMin = Vector2.zero;
         objetivo.rectTransform.anchorMax = Vector2.one;
-        objetivo.rectTransform.offsetMin = new Vector2(24, 12);
-        objetivo.rectTransform.offsetMax = new Vector2(-24, -12);
-        objetivo.alignment = TextAlignmentOptions.Center;
+        objetivo.rectTransform.offsetMin = new Vector2(18, 16);
+        objetivo.rectTransform.offsetMax = new Vector2(-18, -16);
+        objetivo.alignment = TextAlignmentOptions.TopLeft;
+        objetivo.characterSpacing = 0;
         objetivo.textWrappingMode = TextWrappingModes.Normal;
 
     }
@@ -119,6 +148,9 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     {
         marcoMapa = Nodo(transform, "MapaCiudad", Vector2.zero, new Vector2(24, 24), new Vector2(256, 296));
         marcoMapa.pivot = Vector2.zero;
+        visibilidadMapa = marcoMapa.gameObject.AddComponent<CanvasGroup>();
+        visibilidadMapa.interactable = false;
+        visibilidadMapa.blocksRaycasts = false;
         var borde = Nodo(marcoMapa, "BordeRadar", Vector2.zero, Vector2.zero, Vector2.zero);
         borde.anchorMin = Vector2.zero; borde.anchorMax = Vector2.one;
         borde.offsetMin = new Vector2(8, 44); borde.offsetMax = new Vector2(-8, -12);
@@ -133,7 +165,8 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         var mapa = Nodo(mascara, "PlanoCiudad", Vector2.zero, Vector2.zero, Vector2.zero);
         mapa.anchorMin = Vector2.zero; mapa.anchorMax = Vector2.one;
         mapa.offsetMin = mapa.offsetMax = Vector2.zero;
-        mapa.gameObject.AddComponent<MapaCiudadGraphic>().Inicializar(partida, marcoMapa);
+        mapaCiudad = mapa.gameObject.AddComponent<MapaCiudadGraphic>();
+        mapaCiudad.Inicializar(partida, marcoMapa);
         var cj = Texto(borde, "IdentificadorCJ", "CJ", Vector2.zero, new Vector2(42, 36), 27, Color.white);
         cj.rectTransform.anchorMin = cj.rectTransform.anchorMax = new Vector2(0, .5f);
         cj.rectTransform.pivot = new Vector2(.5f, .5f);
@@ -161,7 +194,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         objetivoEbriedad = partida.EbriedadNormalizada;
         objetivoVida = partida.Vida;
         vidaEtiqueta.text = $"VIDA {Mathf.RoundToInt(partida.Vida * 100f)}%";
-        contador.text = $"{partida.Recogidas:00} / {partida.Total:00}";
+        contador.text = $"BOTELLAS {partida.Recogidas:00} / {partida.Total:00}";
         restantes.text = $"QUEDAN {partida.Restantes}";
         if (puntos != null) puntos.text = $"PUNTOS {partida.Puntos:0000}";
         aviso.text = objetivoEbriedad >= .85f ? "! PELIGRO DE DESMAYO !" :
@@ -171,14 +204,20 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     private void Update()
     {
         if (partida == null) return;
-        if (objetivoInicial != null && tiempoObjetivo > 0f
-            && partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso)
-        {
-            if (!partida.EstaPausada)
-                tiempoObjetivo = Mathf.Max(0f, tiempoObjetivo - Time.deltaTime);
-            // La pausa ocupa el mismo borde inferior; las instrucciones vuelven al continuar.
-            objetivoInicial.gameObject.SetActive(tiempoObjetivo > 0f && !partida.EstaPausada);
-        }
+        if (lienzo == null) lienzo = GetComponent<Canvas>();
+        if (lienzo != null) lienzo.enabled = !IntroduccionIsla.Activa;
+        bool jugando = partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso;
+        if (armaJugador == null) armaJugador = FindFirstObjectByType<ControladorArmaFuego>();
+        ActualizarEquipo();
+        // Ocultar solo la presentacion: la exploracion del radar sigue funcionando al caminar apuntando.
+        if (visibilidadMapa != null)
+            visibilidadMapa.alpha = jugando && !(armaJugador != null && armaJugador.SolicitaApuntar) ? 1f : 0f;
+        if (jugando && !partida.EstaPausada && !IntroduccionIsla.Activa &&
+            Keyboard.current != null && Keyboard.current.hKey.wasPressedThisFrame) AlternarIndicaciones();
+        bool mapaAmpliado = mapaCiudad != null && mapaCiudad.Ampliado;
+        objetivoInicial.gameObject.SetActive(jugando && IndicacionesVisibles && !partida.EstaPausada && !mapaAmpliado);
+        indicadorAyuda.gameObject.SetActive(jugando && !partida.EstaPausada && !mapaAmpliado);
+        indicadorAyuda.text = IndicacionesVisibles ? "H: ocultar indicaciones · ESC: opciones" : "H: mostrar indicaciones · ESC: opciones";
         visualEbriedad = Mathf.MoveTowards(visualEbriedad, objetivoEbriedad, Time.unscaledDeltaTime * 2f);
         visualVida = Mathf.MoveTowards(visualVida, objetivoVida, Time.unscaledDeltaTime * 2f);
         ebriedadFill.localScale = new Vector3(visualEbriedad, 1, 1);
@@ -191,10 +230,24 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         if (tiempoPickup > 0)
         {
             tiempoPickup = Mathf.Max(0, tiempoPickup - Time.unscaledDeltaTime);
-            icono.localScale = Vector3.one * (1 + .07f * Mathf.Sin(tiempoPickup / .45f * Mathf.PI));
+            contador.rectTransform.localScale = Vector3.one * (1 + .04f * Mathf.Sin(tiempoPickup / .45f * Mathf.PI));
             feedback.gameObject.SetActive(tiempoPickup > 0);
         }
-        else icono.localScale = Vector3.one;
+        else contador.rectTransform.localScale = Vector3.one;
+    }
+
+    private void ActualizarEquipo()
+    {
+        bool equipada = armaJugador != null && armaJugador.Equipada && armaJugador.Municion != null;
+        imagenBotella.SetActive(!equipada);
+        imagenArma.SetActive(equipada);
+        var balas = equipada ? armaJugador.Municion : null;
+        municion.text = equipada ? $"{balas.Cargador:00} - {balas.Reserva:000}" : "--";
+        municion.color = equipada && balas.Cargador == 0 ? new Color32(238, 90, 75, 255) : Color.white;
+        nombreArma.text = !equipada ? "SIN ARMA" : balas.Recargando ? $"RECARGANDO {armaJugador.RecargaRestante:0.0}s" : "RIFLE DE ASALTO";
+        marcoRecarga.SetActive(equipada && balas.Recargando);
+        if (equipada && balas.Recargando)
+            rellenoRecarga.localScale = new Vector3(Mathf.Clamp01(1 - armaJugador.RecargaRestante / Mathf.Max(.1f, armaJugador.Definicion.segundosRecarga)), 1, 1);
     }
 
     private void Recogida()
@@ -231,6 +284,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         transform.Find("GameplayHUD").gameObject.SetActive(false);
         marcoMapa.gameObject.SetActive(false);
         if (objetivoInicial != null) objetivoInicial.gameObject.SetActive(false);
+        if (indicadorAyuda != null) indicadorAyuda.gameObject.SetActive(false);
         bool victoria = estado == ControladorPartidaBotellas.Resultado.Victoria;
         var menu = new GameObject("MenuResultado", typeof(RectTransform)).AddComponent<ControladorMenus>();
         menu.ConstruirResultado(victoria,

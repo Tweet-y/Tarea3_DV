@@ -58,7 +58,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
 
     private static void AlCargarEscena(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name != "MapaV1" || Instancia != null) return;
+        if (scene.name != ControladorMenus.EscenaJuego || Instancia != null) return;
         new GameObject("PartidaBotellas").AddComponent<ControladorPartidaBotellas>();
     }
 
@@ -118,7 +118,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     {
         if (resultado != Resultado.EnCurso) return;
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) AlternarPausa();
-        if (pausada || ebriedadPorSegundo <= 0f) return;
+        if (pausada || IntroduccionIsla.Activa || ebriedadPorSegundo <= 0f) return;
         var anterior = ebriedad;
         ebriedad = Mathf.Min(limiteEbriedad, ebriedad + ebriedadPorSegundo * Time.deltaTime);
         if (Mathf.Approximately(anterior, ebriedad)) return;
@@ -258,7 +258,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     /// <summary>Aplica daño directo al jugador (aumenta la intoxicación / reduce la vida).</summary>
     public void RecibirDanio(float cantidadDanio, Causa causa = Causa.Desmayo)
     {
-        if (pausada || resultado != Resultado.EnCurso || cantidadDanio <= 0f) return;
+        if (pausada || IntroduccionIsla.Activa || resultado != Resultado.EnCurso || cantidadDanio <= 0f) return;
         ebriedad = Mathf.Min(limiteEbriedad, ebriedad + cantidadDanio);
 
         if (ebriedad >= limiteEbriedad)
@@ -269,7 +269,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
 
     public void Morir()
     {
-        if (pausada || resultado != Resultado.EnCurso) return;
+        if (pausada || IntroduccionIsla.Activa || resultado != Resultado.EnCurso) return;
         ebriedad = limiteEbriedad;
         Finalizar(Resultado.Derrota, Causa.Agua);
         EstadoActualizado?.Invoke();

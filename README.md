@@ -48,12 +48,21 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 - Rifle **Synty Battle Royale `SM_Wep_Rifle_Assault_03`**, recogible junto al punto de inicio. Los cargadores de munición aparecen junto al inicio y en varios sectores del recorrido.
 - **E:** recoger rifle o munición; **clic izquierdo mantenido:** disparo automático; **clic derecho:** apuntar; **R:** recargar; **G:** soltar el rifle.
 - **Mando:** X para recoger, RT para disparar, LB para apuntar, Y para recargar y cruceta abajo para soltar. LB evita interferir con el sprint del gatillo izquierdo.
+- **Movimiento al apuntar:** WASD o stick permiten avanzar, retroceder y desplazarse lateralmente manteniendo el torso hacia la mira. Paso de 1,45 m/s, sin sprint, con animaciones de caminar en ocho direcciones y sensibilidad de cámara reducida.
+- **Cámara al hombro:** al mantener clic derecho o LB, Cinemachine acerca la cámara a 1,8 m, desplaza el encuadre al hombro derecho y reduce el campo de visión a 32°. La transición dura 0,22 s; al soltar, recargar o dejar el arma recupera el encuadre normal. Se mantiene la detección de obstáculos de la cámara.
 - Cargador de **30**, reserva inicial de **120** y maxima de **240**; cajas de **60** balas. Cadencia de **8 disparos/s**, recarga de **2,2 s** y alcance de **150 m**. La municion se conserva al soltar y volver a recoger; una recarga interrumpida no transfiere balas. Con el cargador vacio, disparar inicia la recarga si queda reserva.
 - Mira, confirmacion de impacto, contador de municion, progreso de recarga, retroceso visual, fogonazo y sonido. Pose de brazos y extraccion del cargador mediante animacion procedural sobre el rig Humanoid del jugador.
 - Disparos hitscan: comprueban tanto la vista de la cámara como la trayectoria desde el cuerpo y el cañón, respetando paredes y cobertura. Daño de **25**, doble en la cabeza. Nemesis tiene **175** de vida y el Titán **1200**; al morir dejan de perseguir y hacer daño. Las botellas siguen siendo el objetivo de victoria.
 - Pausar congela la recarga y bloquea disparos y recogidas. Al terminar la partida se oculta el HUD de armas. El sistema se reinstala al cargar una partida nueva.
 - Ajustes y referencia al prefab original: `Assets/Resources/Armas/RifleAsalto03.asset`. La instalacion se hace al cargar `MapaV1`, sin tener que ejecutar configuradores ni modificar los assets de Synty.
 - **Prueba integrada:** `Tools > Armas > Verificar sistema completo`, con las escenas guardadas y Play detenido. Comprueba recogida, impacto, cadencia, paredes, pausa, recarga, municion, soltar y recoger, y dano letal; genera `Logs/armas-fuego-verificadas.txt`. `Tools/PruebasMunicion.cs` prueba la logica de municion sin Unity.
+
+### Introducción de la isla
+
+- Al cargar `MapaV2` desde el menú aparece CJ en la lancha de la orilla y dice: «Hoy nos tenemos que curar, ve y consigue todo el alcohol que haya en esta isla, te espero al otro lado».
+- El texto aparece progresivamente. **Espacio / A** permite mostrarlo completo y continuar; también avanza automáticamente. CJ permanece sobre la lancha mientras esta acelera y se aleja al mar.
+- La cámara regresa a `curao_principal` y devuelve los controles al terminar el plano de salida. Durante la presentación se oculta el HUD y se bloquean disparos, recogidas, daño y ebriedad temporal. **Esc** conserva la pausa, incluyendo el diálogo y el movimiento de la lancha.
+- El objeto `IntroduccionIsla` de `MapaV2` permite ajustar las referencias de CJ y la lancha, el tiempo de lectura, la duración del plano de salida y la velocidad. CJ se configura como NPC, sin tag Player ni controles del jugador.
 
 ### Enemigos
 - **Nemesis** aparece a unos 40 m del jugador, espera 5 s y lo persigue por el NavMesh. Camina a 2,2 m/s y corre a 4,6 m/s si está a más de 8 m (el sprint del jugador es 5,335, así que se le puede escapar). El golpe por contacto quita un 20 % de vida cada 1,5 s y empuja con fuerza 12.
@@ -68,6 +77,7 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 
 ## Controles
 
+- **H:** ocultar o mostrar las indicaciones y los recordatorios de controles del rifle. También disponible en **Esc > Ocultar/Mostrar indicaciones**; la elección se conserva entre partidas. La vida, el mapa, la munición y los avisos de interacción permanecen visibles.
 - **WASD:** mover; **ratón:** cámara; **Espacio:** saltar; **Shift:** correr.
 - **Esc:** pausar y continuar; **M:** ampliar o reducir mapa sin pausar.
 - **Gamepad:** sticks para movimiento/cámara, botón sur para saltar y gatillo izquierdo para correr.

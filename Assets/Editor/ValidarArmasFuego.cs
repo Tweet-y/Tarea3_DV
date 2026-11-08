@@ -73,12 +73,13 @@ public static class ValidarArmasFuego
             {
                 var menu = UnityEngine.Object.FindFirstObjectByType<ControladorMenus>();
                 if (menu == null) return;
-                menu.Cargar("MapaV1");
+                menu.Cargar(ControladorMenus.EscenaJuego);
                 paso = 0;
                 return;
             }
             if (paso == 0)
             {
+                if (IntroduccionIsla.Activa) return;
                 arma = UnityEngine.Object.FindFirstObjectByType<ControladorArmaFuego>();
                 if (arma == null || partida == null || EditorApplication.timeSinceStartup - inicio < 1f) return;
                 var personaje = arma.GetComponentInChildren<Animator>();
