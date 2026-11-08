@@ -1,0 +1,15 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: MobAnimOverride Controller - Orca
+  m_Controller: {fileID: 9100000, guid: 48e2ea72c4399bc469ca59f02cf632f1, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 596cf144c87115e468ca3a284a41df02, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 949a507c18e32974db623e3c1906ced4, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 22e0b086b4545754c8668a26b25f9ac0, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 2acdca70b2de70b47af4aeeaf6c72139, type: 2}

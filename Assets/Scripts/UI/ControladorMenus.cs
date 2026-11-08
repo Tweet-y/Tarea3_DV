@@ -186,6 +186,7 @@ public sealed class ControladorMenus : MonoBehaviour
             sonidoBotones.ignoreListenerPause = true;
             sonidoBotones.volume = .45f;
             sonidoBotones.clip = Resources.Load<AudioClip>("Sonido/Coins 10");
+            Sonido.Asignar(sonidoBotones, "Efectos");
         }
         if (sonidoBotones.clip != null)
         {
@@ -212,6 +213,7 @@ public sealed class ControladorMenus : MonoBehaviour
         fuente.spatialBlend = 0f;
         fuente.ignoreListenerPause = true;
         fuente.volume = volumen;
+        Sonido.Asignar(fuente, "Efectos");
         fuente.clip = clip;
         fuente.Play();
         fuente.time = instante;
@@ -276,6 +278,7 @@ public sealed class ControladorMenus : MonoBehaviour
         fuente.playOnAwake = false;
         fuente.spatialBlend = 0f;
         fuente.clip = clip;
+        Sonido.Asignar(fuente, "Efectos");
         fuente.Play();
         StartCoroutine(CortarSonido(fuente, 1.2f));
     }

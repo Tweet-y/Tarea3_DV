@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using System;
+using System.Collections;
 
 [RequireComponent(typeof(Collider))]
 public class ObjetoEspecialColeccionable : MonoBehaviour
@@ -172,7 +173,7 @@ public class ObjetoEspecialColeccionable : MonoBehaviour
         // 1. Reproducir sonido en la posición del objeto
         if (clipSonido != null)
         {
-            AudioSource.PlayClipAtPoint(clipSonido, transform.position, volumenSonido);
+        Sonido.Reproducir(clipSonido, transform.position, volumenSonido, "Efectos");
         }
 
         // 2. Instanciar partículas de recogida si existen
@@ -184,8 +185,26 @@ public class ObjetoEspecialColeccionable : MonoBehaviour
         // 3. Disparar eventos configurados
         alRecoger?.Invoke();
         AlRecogerColeccionable?.Invoke(this, jugador);
+        var col = GetComponent<Collider>();
+        if (col != null) col.enabled = false;
+        if (isActiveAndEnabled) StartCoroutine(ElevarYDesvanecer());
+        else Destroy(gameObject);
+    }
 
-        // 4. Destruir el objeto
+    System.Collections.IEnumerator ElevarYDesvanecer()
+    {
+        Vector3 inicio = transform.position;
+        Vector3 escala = transform.localScale;
+        if (luzBrillo != null) luzBrillo.enabled = false;
+        float t = 0f;
+        while (t < .6f)
+        {
+            t += Time.deltaTime;
+            float k = Mathf.Clamp01(t / .6f);
+            transform.position = inicio + Vector3.up * (.8f * k);
+            transform.localScale = escala * Mathf.Lerp(1f, .05f, k);
+            yield return null;
+        }
         Destroy(gameObject);
     }
 

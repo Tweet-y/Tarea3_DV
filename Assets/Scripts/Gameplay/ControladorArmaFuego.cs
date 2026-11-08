@@ -15,13 +15,14 @@ public sealed class ControladorArmaFuego : MonoBehaviour
     public float ImpactoHasta { get; private set; }
     public float Retroceso { get; private set; }
     public RecogibleArmaFuego Cercana { get; private set; }
+    public bool DisparoBloqueado { get; set; }
     public bool UsaGamepad => GetComponent<PlayerInput>()?.currentControlScheme == "Gamepad";
     public bool PuedeActuar
     {
         get
         {
             var partida = ControladorPartidaBotellas.Instancia;
-            return enabled && !IntroduccionIsla.Activa && Time.timeScale > 0f && partida != null &&
+            return enabled && !DisparoBloqueado && !IntroduccionIsla.Activa && Time.timeScale > 0f && partida != null &&
                 partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso && !partida.EstaPausada;
         }
     }
@@ -58,6 +59,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         audioArma.playOnAwake = false;
         audioArma.spatialBlend = 0f;
         audioArma.volume = .5f;
+        Sonido.Asignar(audioArma, "Efectos");
         animador = GetComponentInChildren<Animator>();
         locomocion = GetComponent<StarterAssets.ThirdPersonController>();
         camaraApuntado = GetComponent<CamaraApuntadoTerceraPersona>();
@@ -283,10 +285,12 @@ public sealed class ControladorArmaFuego : MonoBehaviour
     {
         impacto = default;
         float menor = float.PositiveInfinity;
-        foreach (var hit in Physics.RaycastAll(origen, direccion.normalized, alcance, ~0, QueryTriggerInteraction.Collide))
+        int mascara = LayerMask.GetMask("Default", CapasJuego.Enemigos, CapasJuego.Objetos);
+        if (mascara == 0) mascara = ~0;
+        foreach (var hit in Physics.RaycastAll(origen, direccion.normalized, alcance, mascara, QueryTriggerInteraction.Collide))
         {
             if (hit.collider.transform.IsChildOf(transform)) continue;
-            if (hit.collider.isTrigger && hit.collider.GetComponentInParent<VidaEnemigoFuego>() == null) continue;
+            if (hit.collider.isTrigger && hit.collider.GetComponentInParent<ControladorVida>() == null) continue;
             if (hit.distance >= menor) continue;
             menor = hit.distance;
             impacto = hit;
@@ -313,10 +317,11 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         Vector3 fin = golpe ? hit.point : boca + (objetivo - boca).normalized * Mathf.Min(Definicion.alcance, Vector3.Distance(boca, objetivo));
         if (golpe)
         {
-            var enemigo = hit.collider.GetComponentInParent<VidaEnemigoFuego>();
+            var enemigo = hit.collider.GetComponentInParent<ControladorVida>();
             if (enemigo != null)
             {
-                float danio = Definicion.danio * (enemigo.EsCabeza(hit.point) ? Definicion.multiplicadorCabeza : 1f);
+                float multiplicador = InventarioJugador.Instancia != null ? InventarioJugador.Instancia.MultiplicadorDanio : 1f;
+                float danio = Definicion.danio * multiplicador * (enemigo.EsCabeza(hit.point) ? Definicion.multiplicadorCabeza : 1f);
                 if (enemigo.RecibirDanio(danio, hit.point)) ImpactoHasta = Time.time + .15f;
             }
         }

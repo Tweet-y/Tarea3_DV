@@ -1,10 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
-using TMPro;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 using UnityEngine.AI;
 
 /// <summary>Presentacion de CJ en la lancha y salida al mar antes de entregar el control al jugador.</summary>
@@ -13,7 +11,8 @@ public sealed class IntroduccionIsla : MonoBehaviour
 {
     public const string Dialogo = "Hoy nos tenemos que curar, ve y consigue todo el alcohol que haya en esta isla, te espero al otro lado";
     private static IntroduccionIsla instancia;
-    public static bool Activa => instancia != null && instancia.enCurso;
+    public static bool Extra { get; set; }
+    public static bool Activa => (instancia != null && instancia.enCurso) || Extra;
 
     [SerializeField] private Transform cj = null;
     [SerializeField] private Transform lancha = null;
@@ -27,11 +26,7 @@ public sealed class IntroduccionIsla : MonoBehaviour
     private Vector3 posicionCamara;
     private Quaternion rotacionCamara;
     private float fov;
-    private GameObject interfaz;
-    private Canvas canvas;
-    private CanvasGroup panel;
-    private Image negro;
-    private TMP_Text texto, indicacion;
+    private ControladorDialogo dialogo;
     private readonly List<(Behaviour componente, bool activo)> suspendidos = new List<(Behaviour, bool)>();
     private StarterAssets.StarterAssetsInputs entradas;
     private bool miradaActiva;
@@ -104,7 +99,7 @@ public sealed class IntroduccionIsla : MonoBehaviour
                 Suspender(enemigo);
             }
             cj.SetParent(lancha, true);
-            ConstruirDialogo();
+            dialogo = ControladorDialogo.Crear(true);
             // Dejar que Cinemachine y los inicializadores de la escena terminen su primer frame.
             yield return null;
             camara = Camera.main;
@@ -119,32 +114,15 @@ public sealed class IntroduccionIsla : MonoBehaviour
             Vector3 plano = foco + cj.forward * 3.8f + cj.right * 1.5f + Vector3.up * .45f;
             camara.transform.SetPositionAndRotation(plano, Quaternion.LookRotation(foco - plano));
             camara.fieldOfView = 48f;
-            panel.alpha = 1f;
             for (float t = 0; t < .3f; t += Time.deltaTime)
             {
-                negro.color = new Color(0, 0, 0, 1f - Mathf.Clamp01(t / .3f));
+                dialogo.Negro.color = new Color(0, 0, 0, 1f - Mathf.Clamp01(t / .3f));
                 yield return null;
             }
-            negro.color = Color.clear;
-            texto.text = Dialogo;
-            texto.maxVisibleCharacters = 0;
-            texto.ForceMeshUpdate();
-            int caracteres = texto.textInfo.characterCount;
-            float reveladas = 0;
-            while (reveladas < caracteres)
-            {
-                if (Avanzar()) reveladas = caracteres;
-                else reveladas += Time.deltaTime * 38f;
-                texto.maxVisibleCharacters = Mathf.Min(caracteres, Mathf.FloorToInt(reveladas));
-                yield return null;
-            }
-            indicacion.text = "ESPACIO / A · Continuar";
-            for (float t = 0; t < segundosLectura; t += Time.deltaTime)
-            {
-                if (t > .25f && Avanzar()) break;
-                yield return null;
-            }
-            panel.alpha = 0f;
+            dialogo.Negro.color = Color.clear;
+            dialogo.FijarNombre("CJ");
+            yield return dialogo.StartCoroutine(dialogo.Revelar(Dialogo, segundosLectura));
+            dialogo.Ocultar();
             Vector3 salida = Vector3.ProjectOnPlane(lancha.position - jugador.transform.position, Vector3.up).normalized;
             if (salida.sqrMagnitude < .1f) salida = lancha.forward;
             Quaternion rumboInicial = lancha.rotation;
@@ -190,23 +168,6 @@ public sealed class IntroduccionIsla : MonoBehaviour
         lancha.position += direccion * (velocidadLancha * Mathf.SmoothStep(0, 1, Mathf.Clamp01(tiempo / 1.5f)) * Time.deltaTime);
     }
 
-    private static bool Avanzar()
-    {
-        var partida = ControladorPartidaBotellas.Instancia;
-        if (Time.timeScale <= 0 || (partida != null && partida.EstaPausada)) return false;
-        return (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) ||
-            (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame);
-    }
-
-    private void Update()
-    {
-        if (canvas != null)
-        {
-            var partida = ControladorPartidaBotellas.Instancia;
-            canvas.enabled = partida == null || !partida.EstaPausada;
-        }
-    }
-
     private void Suspender(Behaviour componente)
     {
         if (componente == null) return;
@@ -239,7 +200,7 @@ public sealed class IntroduccionIsla : MonoBehaviour
         foreach (var estado in suspendidos)
             if (estado.componente != null) estado.componente.enabled = estado.activo;
         suspendidos.Clear();
-        if (interfaz != null) Destroy(interfaz);
+        if (dialogo != null) dialogo.Cerrar();
     }
 
     private void OnDisable()
@@ -247,57 +208,5 @@ public sealed class IntroduccionIsla : MonoBehaviour
         StopAllCoroutines();
         Restaurar();
         if (instancia == this) instancia = null;
-    }
-
-    private void ConstruirDialogo()
-    {
-        interfaz = new GameObject("DialogoIntroduccionCJ", typeof(RectTransform));
-        canvas = interfaz.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 50;
-        var escala = interfaz.AddComponent<CanvasScaler>();
-        escala.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        escala.referenceResolution = new Vector2(1280, 720);
-        escala.matchWidthOrHeight = .5f;
-        negro = Rect("Entrada", interfaz.transform, Vector2.zero, Vector2.one).gameObject.AddComponent<Image>();
-        negro.color = Color.black;
-        negro.raycastTarget = false;
-        var caja = Rect("Dialogo", interfaz.transform, new Vector2(.08f, .06f), new Vector2(.92f, .32f));
-        var fondo = caja.gameObject.AddComponent<Image>();
-        fondo.color = new Color32(17, 21, 20, 240);
-        fondo.raycastTarget = false;
-        panel = caja.gameObject.AddComponent<CanvasGroup>();
-        panel.alpha = 0;
-        var nombre = Texto("Nombre", caja, new Vector2(.025f, .73f), new Vector2(.975f, .98f), 28);
-        nombre.text = "CJ";
-        nombre.color = new Color32(232, 180, 68, 255);
-        texto = Texto("Texto", caja, new Vector2(.025f, .20f), new Vector2(.975f, .73f), 24);
-        texto.enableAutoSizing = true;
-        texto.fontSizeMin = 20;
-        texto.fontSizeMax = 24;
-        texto.textWrappingMode = TextWrappingModes.Normal;
-        indicacion = Texto("Continuar", caja, new Vector2(.025f, .025f), new Vector2(.975f, .19f), 16);
-        indicacion.text = "ESPACIO / A · Mostrar diálogo";
-        indicacion.alignment = TextAlignmentOptions.Right;
-    }
-
-    private static RectTransform Rect(string nombre, Transform padre, Vector2 minimo, Vector2 maximo)
-    {
-        var rect = new GameObject(nombre, typeof(RectTransform)).GetComponent<RectTransform>();
-        rect.SetParent(padre, false);
-        rect.anchorMin = minimo;
-        rect.anchorMax = maximo;
-        rect.offsetMin = rect.offsetMax = Vector2.zero;
-        return rect;
-    }
-
-    private static TMP_Text Texto(string nombre, Transform padre, Vector2 minimo, Vector2 maximo, int tamano)
-    {
-        var texto = Rect(nombre, padre, minimo, maximo).gameObject.AddComponent<TextMeshProUGUI>();
-        texto.fontSize = tamano;
-        texto.color = Color.white;
-        texto.alignment = TextAlignmentOptions.Left;
-        texto.raycastTarget = false;
-        return texto;
     }
 }

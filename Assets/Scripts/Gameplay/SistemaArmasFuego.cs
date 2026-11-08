@@ -46,9 +46,13 @@ public static class SistemaArmasFuego
         }
         foreach (var enemigo in Object.FindObjectsByType<EnemigoAcechador>(FindObjectsSortMode.None))
         {
-            var vida = enemigo.GetComponent<VidaEnemigoFuego>();
-            if (vida == null) vida = enemigo.gameObject.AddComponent<VidaEnemigoFuego>();
-            vida.vidaMaxima = enemigo.transform.lossyScale.y > 5f ? 1200f : 175f;
+            var vida = enemigo.GetComponent<ControladorVida>();
+            if (vida == null)
+            {
+                vida = enemigo.gameObject.AddComponent<VidaEnemigoFuego>();
+                vida.vidaMaxima = enemigo.transform.lossyScale.y > 5f ? 1200f : 175f;
+                vida.Reiniciar();
+            }
         }
     }
 

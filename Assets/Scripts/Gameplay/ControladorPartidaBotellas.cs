@@ -16,6 +16,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     public event Action BotellaCurativaRecogida;
     public IReadOnlyList<ObjetoEspecialColeccionable> Botellas => botellas;
     public event Action<Resultado> PartidaTerminada;
+    public event Action TodasRecogidas;
 
     [Header("Balance")]
     [SerializeField, Min(0.01f)] private float ebriedadPorBotella = 0.04f;
@@ -28,6 +29,9 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     private int cantidadRecogidas;
     private int puntosAcumulados;
     private float ebriedad;
+    private float vidaIsla = 1f;
+    private bool muriendo;
+    private bool ModoIsla => gameObject.scene.name == "MapaV2";
     private Resultado resultado = Resultado.EnCurso;
     private PlayerInput inputJugador;
     private StarterAssets.ThirdPersonController controladorJugador;
@@ -41,9 +45,9 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     public int Recogidas => cantidadRecogidas;
     public int Puntos => puntosAcumulados;
     public int Restantes => Mathf.Max(0, total - Recogidas);
-    public float Ebriedad => ebriedad;
-    public float EbriedadNormalizada => Mathf.Clamp01(ebriedad / Mathf.Max(.01f, limiteEbriedad));
-    public float Vida => 1f - EbriedadNormalizada;
+    public float Ebriedad => ModoIsla ? 1f - vidaIsla : ebriedad;
+    public float EbriedadNormalizada => ModoIsla ? 1f - vidaIsla : Mathf.Clamp01(ebriedad / Mathf.Max(.01f, limiteEbriedad));
+    public float Vida => ModoIsla ? vidaIsla : 1f - EbriedadNormalizada;
     public Resultado Estado => resultado;
     public Causa CausaFinal { get; private set; } = Causa.Ninguna;
     public bool EstaPausada => pausada;
@@ -58,7 +62,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
 
     private static void AlCargarEscena(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name != ControladorMenus.EscenaJuego || Instancia != null) return;
+        if ((scene.name != ControladorMenus.EscenaJuego && scene.name != "MapaV1") || Instancia != null) return;
         new GameObject("PartidaBotellas").AddComponent<ControladorPartidaBotellas>();
     }
 
@@ -118,7 +122,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     {
         if (resultado != Resultado.EnCurso) return;
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) AlternarPausa();
-        if (pausada || IntroduccionIsla.Activa || ebriedadPorSegundo <= 0f) return;
+        if (pausada || IntroduccionIsla.Activa || ModoIsla || ebriedadPorSegundo <= 0f) return;
         var anterior = ebriedad;
         ebriedad = Mathf.Min(limiteEbriedad, ebriedad + ebriedadPorSegundo * Time.deltaTime);
         if (Mathf.Approximately(anterior, ebriedad)) return;
@@ -190,7 +194,8 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
             botella.tipo == ObjetoEspecialColeccionable.TipoBotella.Curativa)
         {
             if (pausada || resultado != Resultado.EnCurso || !recogidas.Add(botella)) return;
-            ebriedad = Mathf.Max(0f, ebriedad - Mathf.Clamp(botella.curacion, 0f, .2f) * limiteEbriedad);
+            if (ModoIsla) Curar(Mathf.Clamp(botella.curacion, 0f, .2f));
+            else ebriedad = Mathf.Max(0f, ebriedad - Mathf.Clamp(botella.curacion, 0f, .2f) * limiteEbriedad);
             EstadoActualizado?.Invoke();
             BotellaCurativaRecogida?.Invoke();
             return;
@@ -201,15 +206,19 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
         cantidadRecogidas++;
         puntosAcumulados += Mathf.Max(0, botella.puntos);
 
-        // Reservar margen para el tiempo y las trampas aunque aumente el
-        // numero de botellas: recogerlas todas no debe causar derrota por si solo.
-        float incremento = Mathf.Min(ebriedadPorBotella, limiteEbriedad * .8f / Mathf.Max(1, total));
-        ebriedad = Mathf.Min(limiteEbriedad, ebriedad + incremento);
-        // Debe completar el objetivo antes de alcanzar el límite de ebriedad.
-        if (ebriedad >= limiteEbriedad)
-            Finalizar(Resultado.Derrota, Causa.Desmayo);
+        if (!ModoIsla)
+        {
+            // Reservar margen para el tiempo y las trampas aunque aumente el
+            // numero de botellas: recogerlas todas no debe causar derrota por si solo.
+            float incremento = Mathf.Min(ebriedadPorBotella, limiteEbriedad * .8f / Mathf.Max(1, total));
+            ebriedad = Mathf.Min(limiteEbriedad, ebriedad + incremento);
+            if (ebriedad >= limiteEbriedad)
+                Finalizar(Resultado.Derrota, Causa.Desmayo);
+            else if (Recogidas >= total)
+                Finalizar(Resultado.Victoria, Causa.Botellas);
+        }
         else if (Recogidas >= total)
-            Finalizar(Resultado.Victoria, Causa.Botellas);
+            TodasRecogidas?.Invoke();
 
         EstadoActualizado?.Invoke();
         BotellaRecogida?.Invoke();
@@ -217,6 +226,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
 
     private void CrearBotellasCurativas()
     {
+        if (ModoIsla) return;
         // Reutilizar la geometría de las botellas del nivel, en superficies ya accesibles.
         foreach (var raiz in gameObject.scene.GetRootGameObjects())
             foreach (var b in raiz.GetComponentsInChildren<ObjetoEspecialColeccionable>(true))
@@ -255,10 +265,38 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
         }
     }
 
-    /// <summary>Aplica daño directo al jugador (aumenta la intoxicación / reduce la vida).</summary>
-    public void RecibirDanio(float cantidadDanio, Causa causa = Causa.Desmayo)
+    public void Curar(float fraccion)
     {
-        if (pausada || IntroduccionIsla.Activa || resultado != Resultado.EnCurso || cantidadDanio <= 0f) return;
+        if (resultado != Resultado.EnCurso || fraccion <= 0f) return;
+        if (ModoIsla) vidaIsla = Mathf.Min(1f, vidaIsla + fraccion);
+        else ebriedad = Mathf.Max(0f, ebriedad - fraccion * limiteEbriedad);
+        EstadoActualizado?.Invoke();
+    }
+
+    public void FinalizarVictoria() => Finalizar(Resultado.Victoria, Causa.Botellas);
+
+    /// <summary>Aplica daño directo al jugador. En la isla baja la vida; animar espera la muerte en pantalla.</summary>
+    public void RecibirDanio(float cantidadDanio, Causa causa = Causa.Desmayo, bool animar = false)
+    {
+        if (pausada || IntroduccionIsla.Activa || muriendo || resultado != Resultado.EnCurso || cantidadDanio <= 0f) return;
+        if (ModoIsla)
+        {
+            vidaIsla = Mathf.Max(0f, vidaIsla - cantidadDanio);
+            if (animar) AnimarJugador(vidaIsla <= 0f);
+            if (vidaIsla <= 0f)
+            {
+                if (animar)
+                {
+                    muriendo = true;
+                    if (inputJugador != null) inputJugador.enabled = false;
+                    if (controladorJugador != null) controladorJugador.enabled = false;
+                    StartCoroutine(MorirTrasAnimacion(causa));
+                }
+                else Finalizar(Resultado.Derrota, causa);
+            }
+            EstadoActualizado?.Invoke();
+            return;
+        }
         ebriedad = Mathf.Min(limiteEbriedad, ebriedad + cantidadDanio);
 
         if (ebriedad >= limiteEbriedad)
@@ -267,10 +305,32 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
         EstadoActualizado?.Invoke();
     }
 
+    System.Collections.IEnumerator MorirTrasAnimacion(Causa causa)
+    {
+        yield return new WaitForSeconds(2f);
+        Finalizar(Resultado.Derrota, causa);
+    }
+
+    void AnimarJugador(bool muerte)
+    {
+        var jugador = GameObject.FindGameObjectWithTag("Player");
+        if (jugador == null) return;
+        var anim = jugador.GetComponentInChildren<Animator>();
+        if (anim == null) return;
+        int capa = anim.GetLayerIndex("Combate");
+        if (capa >= 0) anim.SetLayerWeight(capa, AtaqueMeleeJugador.TieneClip(anim) ? 1f : 0f);
+        string disparo = muerte ? "Morir" : "Golpe";
+        foreach (var parametro in anim.parameters)
+            if (parametro.name == disparo) anim.SetTrigger(disparo);
+        var banco = BancoSonidos.Actual;
+        Sonido.Reproducir(muerte ? banco != null ? banco.muerteJugador : null : banco != null ? banco.golpeJugador : null, jugador.transform.position, 1f, "Efectos");
+    }
+
     public void Morir()
     {
         if (pausada || IntroduccionIsla.Activa || resultado != Resultado.EnCurso) return;
-        ebriedad = limiteEbriedad;
+        if (ModoIsla) vidaIsla = 0f;
+        else ebriedad = limiteEbriedad;
         Finalizar(Resultado.Derrota, Causa.Agua);
         EstadoActualizado?.Invoke();
     }

@@ -14,13 +14,13 @@ TagManager:
   - UI
   - 
   - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Jugador
+  - Aliados
+  - Enemigos
+  - ArmaJugador
+  - ArmaEnemigo
+  - Objetos
+  - Recogibles
   - 
   - 
   - 

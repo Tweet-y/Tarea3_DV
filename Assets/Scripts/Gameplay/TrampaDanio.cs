@@ -157,7 +157,7 @@ public class TrampaDanio : MonoBehaviour
     {
         if (clipSonidoDanio != null)
         {
-            AudioSource.PlayClipAtPoint(clipSonidoDanio, transform.position, volumenSonido);
+            Sonido.Reproducir(clipSonidoDanio, transform.position, volumenSonido, "Efectos");
         }
 
         if (efectoParticulas != null)

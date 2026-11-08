@@ -86,14 +86,17 @@ public static class ValidarArmasFuego
                 Exigir(arma.name == "curao_principal" && personaje != null && personaje.avatar != null && personaje.avatar.isValid && personaje.isHuman,
                     "curao_principal es el jugador activo con avatar Humanoid valido.");
                 Exigir(!personaje.applyRootMotion && personaje.runtimeAnimatorController.animationClips.All(c =>
-                    AssetDatabase.GetAssetPath(c).StartsWith("Assets/Kevin Iglesias/Basic Motions/")),
+                {
+                    var ruta = AssetDatabase.GetAssetPath(c);
+                    return ruta.StartsWith("Assets/Kevin Iglesias/Basic Motions/") || ruta.StartsWith("Assets/Animaciones/Combate/");
+                }),
                     "Locomocion usa los clips Basic Motions y la capsula controla el desplazamiento.");
                 var camaraJugador = UnityEngine.Object.FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None)
                     .FirstOrDefault(c => c.Target.TrackingTarget != null && c.Target.TrackingTarget.IsChildOf(arma.transform));
                 Exigir(camaraJugador != null, "La camara Cinemachine sigue al nuevo jugador.");
                 Exigir(!arma.Equipada && RecogibleArmaFuego.Activos.Any(p => !p.SoloMunicion), "El jugador inicia desarmado y existe un rifle recogible.");
                 Exigir(UnityEngine.Object.FindObjectsByType<EnemigoAcechador>(FindObjectsSortMode.None)
-                    .All(e => e.GetComponent<VidaEnemigoFuego>() != null), "Los enemigos existentes reciben dano de armas.");
+                    .All(e => e.GetComponent<ControladorVida>() != null), "Los enemigos existentes reciben dano de armas.");
                 foreach (var enemigo in UnityEngine.Object.FindObjectsByType<EnemigoAcechador>(FindObjectsSortMode.None))
                     enemigo.gameObject.SetActive(false);
                 origen = new Vector3(5000, 1000, 5000);

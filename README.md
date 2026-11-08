@@ -54,7 +54,7 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 - Mira, confirmacion de impacto, contador de municion, progreso de recarga, retroceso visual, fogonazo y sonido. Pose de brazos y extraccion del cargador mediante animacion procedural sobre el rig Humanoid del jugador.
 - Disparos hitscan: comprueban tanto la vista de la cámara como la trayectoria desde el cuerpo y el cañón, respetando paredes y cobertura. Daño de **25**, doble en la cabeza. Nemesis tiene **175** de vida y el Titán **1200**; al morir dejan de perseguir y hacer daño. Las botellas siguen siendo el objetivo de victoria.
 - Pausar congela la recarga y bloquea disparos y recogidas. Al terminar la partida se oculta el HUD de armas. El sistema se reinstala al cargar una partida nueva.
-- Ajustes y referencia al prefab original: `Assets/Resources/Armas/RifleAsalto03.asset`. La instalacion se hace al cargar `MapaV1`, sin tener que ejecutar configuradores ni modificar los assets de Synty.
+- Ajustes y referencia al prefab original: `Assets/Resources/Armas/RifleAsalto03.asset`. La instalación se hace al cargar la escena de juego (`ControladorMenus.EscenaJuego`).
 - **Prueba integrada:** `Tools > Armas > Verificar sistema completo`, con las escenas guardadas y Play detenido. Comprueba recogida, impacto, cadencia, paredes, pausa, recarga, municion, soltar y recoger, y dano letal; genera `Logs/armas-fuego-verificadas.txt`. `Tools/PruebasMunicion.cs` prueba la logica de municion sin Unity.
 
 ### Introducción de la isla
@@ -71,17 +71,35 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 - Ambos reutilizan `StarterAssetsThirdPerson` (caminar, correr, idle). El daño es `TrampaDanio` con `repetirMientrasContacto`. Pausa y fin de partida (`Time.timeScale = 0`) los congelan. El jugador puede defenderse con el rifle recogible de Battle Royale.
 - **Configurar:** `Tools > Enemigos > Configurar` (o `Unity -batchmode -projectPath . -executeMethod ConfigurarEnemigos.Ejecutar -quit` con el editor cerrado). Antes, si hace falta regenerar el FBX: `blender --background --python Tools/convertir_nemesis.py`.
 - **Verificar:** `Tools > Enemigos > Verificar` escribe `Logs/enemigos-validados.txt`.
-- **Créditos:** modelo de Nemesis por **toheed_zahid** en Sketchfab, licencia **CC-BY-4.0**. Hay que mantener esta atribución. El titán sale del pack Synty Polygon City Characters del material del curso.
+- **Créditos:** modelo de Nemesis por **toheed_zahid** en Sketchfab, licencia **CC-BY-4.0**. Hay que mantener esta atribución. El titán sale del pack Synty Polygon City Characters del material del curso. Los clips de combate, cuando están en `Assets/Animaciones/Combate/`, son de **Mixamo** (Adobe). Los efectos de partículas salen de Polygon Particle FX y los sonidos de ataque, impacto, buff y explosión del Ultimate Sound FX Bundle del material de clase.
+
+### Isla (evaluación 3)
+
+El nivel que se juega desde el menú es **MapaV2**. Hay **30 botellas**: 29 en la isla y la última la lleva Nemesis. El medidor de ebriedad pasa a ser el conteo **n/30**; la vida baja solo con el daño. Al juntar las 30 aparecen fuegos artificiales y la lancha de CJ en el extremo opuesto. Subir a la lancha cierra con diálogo y victoria.
+
+- **Bate** en la mano (tecla **1**). **2** cambia al rifle si ya se recogió. Clic izquierdo o RT golpea o dispara según el arma activa.
+- **Q** usa un botiquín (+30 % de vida). **F** toma la bebida energética (+50 % de daño y de velocidad durante 15 s). La munición sigue en el rifle.
+- **Zombies** de personajes Synty persiguen por el NavMesh y pegan con una hitbox. No se dañan entre sí. Nemesis es el jefe (variante `NemesisJefe`, sin tocar el prefab de MapaV1 ni al titán).
+- **Cajas** se rompen y sueltan munición, curación o buff. El objeto sube y se encoge al recogerlo.
+- **Capas:** Jugador, Aliados, Enemigos, ArmaJugador, ArmaEnemigo, Objetos, Recogibles. El arma enemiga solo toca al jugador; la del jugador toca enemigos y cajas.
+- **NavMesh** horneado en `Assets/Scenes/MapaV2/NavMesh-Isla.asset`. La escena queda en texto.
+- **Audio Mixer** `Assets/Resources/Audio/MezcladorPrincipal.mixer` con grupos Master, Musica, Efectos y Voces.
+- **Cinemáticas** con corrutina: la intro de CJ, el plano del jefe al entrar en su zona y la salida en la lancha. Espacio o A adelantan el diálogo.
+- **Configurar:** `Tools > Isla > Configurar`. **Verificar:** `Tools > Isla > Verificar` escribe `Logs/isla-validada.txt`.
+- Los clips de atacar, recibir golpe y morir se leen de `Assets/Animaciones/Combate/` si existen (Mixamo, FBX for Unity, Without Skin). Sin ellos el Animator igual entra a esos estados.
 
 ---
 
 ## Controles
 
-- **H:** ocultar o mostrar las indicaciones y los recordatorios de controles del rifle. También disponible en **Esc > Ocultar/Mostrar indicaciones**; la elección se conserva entre partidas. La vida, el mapa, la munición y los avisos de interacción permanecen visibles.
+- **1 / 2** o cruceta izquierda/derecha: bate o rifle.
+- **Clic izquierdo / RT:** golpear con el bate, o disparar si el rifle está seleccionado.
+- **Q:** botiquín. **F:** bebida energética.
+- **H:** ocultar o mostrar las indicaciones. También en **Esc**. La vida, las botellas, el mapa y la munición siguen visibles.
 - **WASD:** mover; **ratón:** cámara; **Espacio:** saltar; **Shift:** correr.
 - **Esc:** pausar y continuar; **M:** ampliar o reducir mapa sin pausar.
 - **Gamepad:** sticks para movimiento/cámara, botón sur para saltar y gatillo izquierdo para correr.
-- Objetivo: reunir todas las botellas objetivo antes de quedarse sin salud. Aprovechar las cinco azules para curarse.
+- Objetivo en la isla: juntar las 30 botellas y volver a la lancha de CJ.
 
 ---
 

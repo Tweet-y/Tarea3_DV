@@ -14,6 +14,7 @@ public class MusicManager : MonoBehaviour
     {
         // Obtenemos la referencia al AudioSource
         audioSource = GetComponent<AudioSource>();
+        Sonido.Asignar(audioSource, "Musica");
 
         // Verificamos que se hayan asignado pistas antes de intentar reproducir
         if (musicTracks.Length > 0)

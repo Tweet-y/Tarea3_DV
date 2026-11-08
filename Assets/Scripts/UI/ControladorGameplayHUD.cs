@@ -10,7 +10,8 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
 {
     private ControladorPartidaBotellas partida;
     private RectTransform ebriedadFill, vidaFill, icono;
-    private TMP_Text contador, restantes, aviso, feedback, puntos, vidaEtiqueta;
+    private TMP_Text contador, restantes, aviso, feedback, puntos, vidaEtiqueta, etiquetaMedidor, inventarioHud, vidaJefe;
+    private RectTransform vidaJefeFill;
     private TMP_Text municion, nombreArma;
     private GameObject imagenBotella, imagenArma, marcoRecarga;
     private RectTransform rellenoRecarga;
@@ -116,7 +117,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         contador = Texto(root, "BottleCounter", $"BOTELLAS 00 / {partida.Total:00}", new Vector2(0, -104), new Vector2(280, 28), 24, Color.white);
         vidaEtiqueta = Texto(root, "HealthLabel", "VIDA 100%", new Vector2(0, -142), new Vector2(280, 20), 17, Color.white);
         vidaFill = Barra(root, "PlayerHealth", new Vector2(0, -166), new Vector2(280, 20), new Color32(188, 37, 45, 255));
-        Texto(root, "DrunkLabel", "EBRIEDAD", new Vector2(0, -198), new Vector2(280, 18), 17, Color.white);
+        etiquetaMedidor = Texto(root, "DrunkLabel", "EBRIEDAD", new Vector2(0, -198), new Vector2(280, 18), 17, Color.white);
         ebriedadFill = Barra(root, "DrunkMeter", new Vector2(0, -220), new Vector2(280, 16), new Color32(205, 205, 205, 255));
         restantes = Texto(root, "RemainingText", $"QUEDAN {partida.Total}", new Vector2(0, -246), new Vector2(280, 28), 24, new Color32(82, 142, 72, 255));
         aviso = Texto(root, "DangerStatus", "SOBRIO", new Vector2(0, -280), new Vector2(280, 20), 16, Color.white);
@@ -132,7 +133,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         fondoObjetivo.color = new Color32(17, 21, 20, 225);
         fondoObjetivo.raycastTarget = false;
         var objetivo = Texto(objetivoInicial, "TextoObjetivo",
-            "OBJETIVO\nConsigue todo el alcohol de la isla.\nLas botellas azules recuperan vida.\n\nCONTROLES\nWASD: mover · Espacio: saltar · Shift: correr\nRatón: cámara · M: mapa · Esc: pausa\nE: recoger · Clic izq.: disparar\nClic der.: apuntar · R: recargar · G: soltar",
+            "OBJETIVO\nConsigue las 30 botellas de la isla.\nLa última la tiene el jefe.\n\nCONTROLES\nWASD: mover · Espacio: saltar · Shift: correr\n1 bate · 2 rifle · Clic izq.: golpear o disparar\nQ botiquín · F bebida · E recoger · Esc pausa",
             Vector2.zero, Vector2.zero, 18, Color.white);
         objetivo.rectTransform.anchorMin = Vector2.zero;
         objetivo.rectTransform.anchorMax = Vector2.one;
@@ -191,14 +192,28 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
 
     private void Actualizar()
     {
-        objetivoEbriedad = partida.EbriedadNormalizada;
+        bool isla = partida.gameObject.scene.name == "MapaV2";
+        objetivoEbriedad = isla
+            ? (partida.Total <= 0 ? 0f : (float)partida.Recogidas / partida.Total)
+            : partida.EbriedadNormalizada;
         objetivoVida = partida.Vida;
         vidaEtiqueta.text = $"VIDA {Mathf.RoundToInt(partida.Vida * 100f)}%";
         contador.text = $"BOTELLAS {partida.Recogidas:00} / {partida.Total:00}";
         restantes.text = $"QUEDAN {partida.Restantes}";
         if (puntos != null) puntos.text = $"PUNTOS {partida.Puntos:0000}";
-        aviso.text = objetivoEbriedad >= .85f ? "! PELIGRO DE DESMAYO !" :
-            objetivoEbriedad >= .6f ? "MUY EBRIO" : objetivoEbriedad >= .3f ? "MAREADO" : "SOBRIO";
+        if (isla)
+        {
+            etiquetaMedidor.text = $"BOTELLAS {partida.Recogidas}/{partida.Total}";
+            aviso.text = string.IsNullOrEmpty(FinalIsla.Mensaje) ? "JUNTA LAS BOTELLAS" : FinalIsla.Mensaje;
+        }
+        else
+        {
+            etiquetaMedidor.text = "EBRIEDAD";
+            aviso.text = objetivoEbriedad >= .85f ? "! PELIGRO DE DESMAYO !" :
+                objetivoEbriedad >= .6f ? "MUY EBRIO" : objetivoEbriedad >= .3f ? "MAREADO" : "SOBRIO";
+        }
+        ActualizarJefe();
+        ActualizarInventario();
     }
 
     private void Update()
@@ -224,7 +239,8 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         vidaFill.localScale = new Vector3(visualVida, 1, 1);
         vidaMapa.localScale = new Vector3(visualVida, 1, 1);
         ebriedadMapa.localScale = new Vector3(visualEbriedad, 1, 1);
-        aviso.color = objetivoEbriedad >= .85f
+        bool isla = partida.gameObject.scene.name == "MapaV2";
+        aviso.color = !isla && objetivoEbriedad >= .85f
             ? Color.Lerp(Color.white, new Color32(255, 90, 75, 255), .5f + .5f * Mathf.Sin(Time.unscaledTime * 7))
             : Color.white;
         if (tiempoPickup > 0)
@@ -248,6 +264,42 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         marcoRecarga.SetActive(equipada && balas.Recargando);
         if (equipada && balas.Recargando)
             rellenoRecarga.localScale = new Vector3(Mathf.Clamp01(1 - armaJugador.RecargaRestante / Mathf.Max(.1f, armaJugador.Definicion.segundosRecarga)), 1, 1);
+    }
+
+    void ActualizarInventario()
+    {
+        var inventario = InventarioJugador.Instancia;
+        if (inventarioHud == null)
+        {
+            inventarioHud = Texto(transform, "Inventario", "", new Vector2(24, 78), new Vector2(520, 28), 18, Color.white);
+            inventarioHud.alignment = TextAlignmentOptions.Left;
+            inventarioHud.rectTransform.anchorMin = inventarioHud.rectTransform.anchorMax = Vector2.zero;
+            inventarioHud.rectTransform.pivot = Vector2.zero;
+        }
+        if (inventario == null) { inventarioHud.text = ""; return; }
+        string arma = inventario.armaActiva == InventarioJugador.Arma.Bate ? "BATE" : "RIFLE";
+        inventarioHud.text = $"{arma}   BOTIQUÍN {inventario.botiquines}   BEBIDA {inventario.buffs}" + (inventario.BuffActivo ? "   +DAÑO" : "");
+    }
+
+    void ActualizarJefe()
+    {
+        ControladorVida jefe = null;
+        foreach (var vida in FindObjectsByType<ControladorVida>(FindObjectsSortMode.None))
+            if (vida.esJefe && !vida.Muerto) jefe = vida;
+        if (jefe == null)
+        {
+            if (vidaJefe != null) vidaJefe.gameObject.SetActive(false);
+            return;
+        }
+        if (vidaJefeFill == null)
+        {
+            vidaJefe = Texto(transform, "NombreJefe", "NEMESIS", new Vector2(0, -16), new Vector2(420, 24), 18, new Color32(232, 180, 68, 255));
+            vidaJefe.alignment = TextAlignmentOptions.Center;
+            vidaJefe.rectTransform.anchorMin = vidaJefe.rectTransform.anchorMax = new Vector2(.5f, 1f);
+            vidaJefeFill = Barra(vidaJefe.rectTransform, "VidaJefe", new Vector2(0, -28), new Vector2(420, 16), new Color32(166, 42, 33, 255));
+        }
+        vidaJefe.gameObject.SetActive(true);
+        vidaJefeFill.localScale = new Vector3(jefe.Fraccion, 1f, 1f);
     }
 
     private void Recogida()
