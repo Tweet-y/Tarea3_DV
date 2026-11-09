@@ -275,6 +275,21 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
 
     public void FinalizarVictoria() => Finalizar(Resultado.Victoria, Causa.Botellas);
 
+    /// <summary>Atajo de prueba del jefe: da todas las botellas por recogidas.</summary>
+    public void CompletarParaPrueba()
+    {
+        if (!ModoIsla || resultado != Resultado.EnCurso) return;
+        foreach (var b in botellas)
+        {
+            if (b == null || !recogidas.Add(b)) continue;
+            cantidadRecogidas++;
+            puntosAcumulados += Mathf.Max(0, b.puntos);
+            b.gameObject.SetActive(false);
+        }
+        EstadoActualizado?.Invoke();
+        TodasRecogidas?.Invoke();
+    }
+
     /// <summary>Aplica daño directo al jugador. En la isla baja la vida; animar espera la muerte en pantalla.</summary>
     public void RecibirDanio(float cantidadDanio, Causa causa = Causa.Desmayo, bool animar = false)
     {

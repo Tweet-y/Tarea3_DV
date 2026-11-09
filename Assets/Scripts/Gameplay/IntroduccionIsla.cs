@@ -9,7 +9,7 @@ using UnityEngine.AI;
 [DefaultExecutionOrder(-300)]
 public sealed class IntroduccionIsla : MonoBehaviour
 {
-    public const string Dialogo = "Hoy nos tenemos que curar, ve y consigue todo el alcohol que haya en esta isla, te espero al otro lado";
+    public const string Dialogo = "Ya po, weón, hoy nos vamos a curar como corresponde. Anda a buscar todo el copete que haya en esta isla, yo te espero al otro lado, ¿cachai?";
     private static IntroduccionIsla instancia;
     public static bool Extra { get; set; }
     public static bool Activa => (instancia != null && instancia.enCurso) || Extra;
@@ -70,6 +70,14 @@ public sealed class IntroduccionIsla : MonoBehaviour
 
     private IEnumerator Start()
     {
+        // El atajo del menu va directo a la pelea final.
+        if (PeleaJefeLancha.ModoPrueba)
+        {
+            ResolverReferencias();
+            enCurso = false;
+            restaurada = true;
+            yield break;
+        }
         if (!ResolverReferencias())
         {
             yield return null;

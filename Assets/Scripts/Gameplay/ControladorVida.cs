@@ -49,12 +49,22 @@ public class ControladorVida : MonoBehaviour
         return punto.y >= transform.position.y + volumen.size.y * .82f;
     }
 
-    public bool RecibirDanio(float cantidad, Vector3 punto)
+    float proximaAnimGolpe;
+
+    /// <param name="direccion">Direccion del golpe o proyectil; vacia = se deduce desde el jugador.</param>
+    public bool RecibirDanio(float cantidad, Vector3 punto, Vector3 direccion = default)
     {
         if (Muerto || cantidad <= 0f) return false;
         Vida = Mathf.Max(0f, Vida - cantidad);
         alCambiarVida?.Invoke(Fraccion);
         var anim = GetComponent<Animator>();
+        // Solo enemigos con cuerpo animado: las cajas no reaccionan.
+        if (anim != null && GetComponent<EnemigoAcechador>() != null)
+        {
+            var reaccion = GetComponent<ReaccionImpacto>();
+            if (reaccion == null) reaccion = gameObject.AddComponent<ReaccionImpacto>();
+            reaccion.Impactar(punto, direccion, cantidad, EsCabeza(punto), Muerto);
+        }
         if (Muerto)
         {
             if (anim != null) anim.SetTrigger(triggerMorir);
@@ -62,7 +72,12 @@ public class ControladorVida : MonoBehaviour
             Morir();
             return true;
         }
-        if (anim != null) anim.SetTrigger(triggerGolpe);
+        // En rafaga, relanzar la animacion en cada bala la deja congelada en el primer fotograma.
+        if (anim != null && Time.time >= proximaAnimGolpe)
+        {
+            anim.SetTrigger(triggerGolpe);
+            proximaAnimGolpe = Time.time + (esJefe ? 1.5f : .5f);
+        }
         Sonido.Reproducir(sonidoGolpe != null ? sonidoGolpe : BancoSonidos.Actual != null ? BancoSonidos.Actual.impacto : null, punto, .9f, "Efectos");
         return true;
     }

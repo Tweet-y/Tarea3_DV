@@ -36,7 +36,7 @@ public sealed class HUDArmaFuego : MonoBehaviour
         if (!canvas.enabled) return;
         bool mando = jugador.UsaGamepad;
         var municion = jugador.Municion;
-        bool equipada = jugador.Equipada;
+        bool equipada = jugador.EnMano;
         bool ayuda = ControladorGameplayHUD.IndicacionesVisibles;
         controles.gameObject.SetActive(ayuda);
         mira.gameObject.SetActive(equipada && !municion.Recargando);

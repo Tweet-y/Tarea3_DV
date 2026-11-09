@@ -61,6 +61,7 @@ public sealed class ControladorMenus : MonoBehaviour
     {
         if (scene.name != EscenaMenu) return;
         Time.timeScale = 1f;
+        PeleaJefeLancha.ModoPrueba = false;
         // El menú anterior permanece en el archivo de escena, pero no se superpone al nuevo.
         foreach (var canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
             if (canvas.gameObject.scene == scene) canvas.gameObject.SetActive(false);
@@ -80,9 +81,14 @@ public sealed class ControladorMenus : MonoBehaviour
         letras.ConSombra = true;
         letras.raycastTarget = false;
         var contenido = Rect(transform, "BotonesCentrados", new Vector2(.5f, .36f), new Vector2(.5f, .36f));
-        contenido.sizeDelta = new Vector2(300, 124);
-        primerBoton = BotonPixel(contenido, "Iniciar Juego", 32, () => Cargar(EscenaJuego));
-        BotonPixel(contenido, "Salir", -32, Salir);
+        contenido.sizeDelta = new Vector2(300, 188);
+        primerBoton = BotonPixel(contenido, "Iniciar Juego", 64, () => Cargar(EscenaJuego));
+        BotonPixel(contenido, "Probar Jefe", 0, () =>
+        {
+            PeleaJefeLancha.ModoPrueba = true;
+            Cargar(EscenaJuego);
+        });
+        BotonPixel(contenido, "Salir", -64, Salir);
         CrearCarga();
         if (Application.isPlaying) StartCoroutine(Seleccionar(primerBoton));
     }

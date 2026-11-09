@@ -430,7 +430,7 @@ GameObject:
   - component: {fileID: 23846080607520240}
   - component: {fileID: 64417231184944002}
   m_Layer: 0
-  m_Name: SM_Wep_MachineGun_01
+  m_Name: 50cal_bossfight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

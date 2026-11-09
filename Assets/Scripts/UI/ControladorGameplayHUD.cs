@@ -133,7 +133,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         fondoObjetivo.color = new Color32(17, 21, 20, 225);
         fondoObjetivo.raycastTarget = false;
         var objetivo = Texto(objetivoInicial, "TextoObjetivo",
-            "OBJETIVO\nConsigue las 30 botellas de la isla.\nLa última la tiene el jefe.\n\nCONTROLES\nWASD: mover · Espacio: saltar · Shift: correr\n1 bate · 2 rifle · Clic izq.: golpear o disparar\nQ botiquín · F bebida · E recoger · Esc pausa",
+            "OBJETIVO\nConsigue las 30 botellas de la isla.\nLuego ve a muelle_final con CJ.\n\nCONTROLES\nWASD: mover · Espacio: saltar · Shift: correr\n1 bate · 2 rifle · Clic izq.: golpear o disparar\nQ botiquín · F bebida · E recoger · Esc pausa",
             Vector2.zero, Vector2.zero, 18, Color.white);
         objetivo.rectTransform.anchorMin = Vector2.zero;
         objetivo.rectTransform.anchorMax = Vector2.one;
@@ -220,7 +220,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     {
         if (partida == null) return;
         if (lienzo == null) lienzo = GetComponent<Canvas>();
-        if (lienzo != null) lienzo.enabled = !IntroduccionIsla.Activa;
+        if (lienzo != null) lienzo.enabled = !IntroduccionIsla.Activa && !PeleaJefeLancha.Activa;
         bool jugando = partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso;
         if (armaJugador == null) armaJugador = FindFirstObjectByType<ControladorArmaFuego>();
         ActualizarEquipo();
@@ -285,7 +285,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     {
         ControladorVida jefe = null;
         foreach (var vida in FindObjectsByType<ControladorVida>(FindObjectsSortMode.None))
-            if (vida.esJefe && !vida.Muerto) jefe = vida;
+            if (vida.esJefe && !vida.Muerto && PeleaJefeLancha.BarraVisible) jefe = vida;
         if (jefe == null)
         {
             if (vidaJefe != null) vidaJefe.gameObject.SetActive(false);
