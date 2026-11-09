@@ -50,30 +50,37 @@ public static class ConfigurarIsla
         var muerteZombie = BuscarCombate("Zombie Dying");
         var ataqueNemesis = BuscarCombate("Mutant Swiping");
         var muerteNemesis = BuscarCombate("Mutant Dying");
-        var atacarZ = ataqueZombie ?? correr;
-        var golpeZ = BuscarCombate("Zombie Reaction Hit") ?? idle;
-        var morirZ = muerteZombie ?? idle;
-        var idleZ = BuscarCombate("Zombie Idle") ?? idle;
-        var andarZ = BuscarCombate("Zombie Walk") ?? correr;
-        var controlador = CrearControladorEnemigo(idleZ, andarZ, atacarZ, golpeZ, morirZ);
+        // Respaldo: clips Humanoid de Kevin Iglesias (Basic Motions + Melee Warrior) si faltan los de Mixamo.
+        var atacarZ = ataqueZombie ?? Paquete("Attack01", "Melee Warrior Animations/Animations/OneHanded/RightHand/RightHand@Attack01.fbx") ?? correr;
+        var golpeZ = BuscarCombate("Zombie Reaction Hit") ?? Paquete("TakeDamage01", "Melee Warrior Animations/Animations/OneHanded/1H@TakeDamage01.fbx") ?? idle;
+        var morirZ = muerteZombie ?? Paquete("Death01_A", "Melee Warrior Animations/Animations/MeleeWarrior@Death01.fbx") ?? idle;
+        var idleZ = BuscarCombate("Zombie Idle") ?? Paquete("Idle01", "Basic Motions/Animations/Idles/BasicMotions@Idle01.fbx") ?? idle;
+        var andarZ = BuscarCombate("Zombie Walk") ?? Paquete("Walk01 - Forwards", "Basic Motions/Animations/Movement/BasicMotions@Walk01.fbx") ?? correr;
+        var correrZ = Paquete("Run01 - Forwards", "Basic Motions/Animations/Movement/BasicMotions@Run01.fbx") ?? andarZ;
+        var controlador = CrearControladorEnemigo(idleZ, andarZ, correrZ, atacarZ, golpeZ, morirZ);
         var overrideZ = Override(controlador, "Assets/Animaciones/Personajes/EnemigoCombate_Zombie.overrideController");
         // Solo se reemplaza el clip propio del ataque o de la muerte. Si falta el del zombie,
         // ese estado comparte el de caminar o el de reposo y no se puede pisar sin romper la locomoción.
         var overrideN = Override(controlador, "Assets/Animaciones/Personajes/EnemigoCombate_Nemesis.overrideController", ataqueZombie, ataqueNemesis, muerteZombie, muerteNemesis);
-        AgregarCapaJugador(BuscarCombate("Standing Melee Attack Horizontal"), BuscarCombate("Hit Reaction"), BuscarCombate("Dying"));
+        AgregarCapaJugador(
+            BuscarCombate("Standing Melee Attack Horizontal") ?? Paquete("Attack02", "Melee Warrior Animations/Animations/OneHanded/RightHand/RightHand@Attack02.fbx"),
+            BuscarCombate("Hit Reaction") ?? Paquete("TakeDamage02", "Melee Warrior Animations/Animations/OneHanded/1H@TakeDamage02.fbx"),
+            BuscarCombate("Dying") ?? Paquete("Death02_A", "Melee Warrior Animations/Animations/MeleeWarrior@Death02.fbx"));
         EditorSceneManager.OpenScene(Escena);
-        var material = MaterialZombie();
         string[] origenes =
         {
-            "Assets/Synty/PolygonCityCharacters/Prefabs/Character_Hobo_01.prefab",
-            "Assets/Synty/PolygonCityCharacters/Prefabs/Character_Roadworker_01.prefab",
-            "Assets/Synty/PolygonCityCharacters/Prefabs/Character_Paramedic_01.prefab",
-            "Assets/Synty/PolygonCityCharacters/Prefabs/Character_Jock_01.prefab",
-            "Assets/Synty/PolygonCity/Prefabs/Characters/Character_BusinessMan_Shirt.prefab"
+            "Assets/PolygonZombies/Prefabs/Zombie_Hobo_Male_01.prefab",
+            "Assets/PolygonZombies/Prefabs/Zombie_Roadworker_Male_01.prefab",
+            "Assets/PolygonZombies/Prefabs/Zombie_Paramedic_Female_01.prefab",
+            "Assets/PolygonZombies/Prefabs/Zombie_Jock_Male_01.prefab",
+            "Assets/PolygonZombies/Prefabs/Zombie_Businessman_Male_01.prefab",
+            "Assets/PolygonZombies/Prefabs/Zombie_Punk_Male_01.prefab",
+            "Assets/PolygonZombies/Prefabs/Zombie_Police_Male_01.prefab",
+            "Assets/PolygonZombies/Prefabs/Zombie_Hoodie_Male_01.prefab"
         };
         var prefabsZ = new GameObject[origenes.Length];
         for (int i = 0; i < origenes.Length; i++)
-            prefabsZ[i] = CrearZombie("Zombie_" + Path.GetFileNameWithoutExtension(origenes[i]).Replace("Character_", ""), origenes[i], overrideZ, material);
+            prefabsZ[i] = CrearZombie(Path.GetFileNameWithoutExtension(origenes[i]), origenes[i], overrideZ);
         var jefe = CrearJefe(overrideN);
         IgnorarAgua();
         var superficie = Hornear();
@@ -212,7 +219,7 @@ public static class ConfigurarIsla
             throw new Exception("El mezclador no creó el grupo Efectos.");
     }
 
-    static AnimatorController CrearControladorEnemigo(AnimationClip idle, AnimationClip andar, AnimationClip atacar, AnimationClip golpe, AnimationClip morir)
+    static AnimatorController CrearControladorEnemigo(AnimationClip idle, AnimationClip andar, AnimationClip correr, AnimationClip atacar, AnimationClip golpe, AnimationClip morir)
     {
         if (AssetDatabase.LoadAssetAtPath<AnimatorController>(Controlador) != null)
             AssetDatabase.DeleteAsset(Controlador);
@@ -228,7 +235,12 @@ public static class ConfigurarIsla
         var sGolpe = maquina.AddState("Golpe");
         var sMorir = maquina.AddState("Morir");
         sIdle.motion = idle;
-        sMover.motion = andar;
+        // Caminar y correr se mezclan por Speed (m/s del agente) para que los pies no patinen.
+        var arbol = new BlendTree { name = "Caminar y correr", blendType = BlendTreeType.Simple1D, blendParameter = "Speed", useAutomaticThresholds = false };
+        AssetDatabase.AddObjectToAsset(arbol, controlador);
+        arbol.AddChild(andar, 1.8f);
+        arbol.AddChild(correr, 4.5f);
+        sMover.motion = arbol;
         sAtacar.motion = atacar;
         sGolpe.motion = golpe;
         sMorir.motion = morir;
@@ -331,19 +343,7 @@ public static class ConfigurarIsla
         EditorUtility.SetDirty(controlador);
     }
 
-    static Material MaterialZombie()
-    {
-        const string ruta = "Assets/Materiales/Zombie.mat";
-        var previo = AssetDatabase.LoadAssetAtPath<Material>(ruta);
-        if (previo != null) return previo;
-        var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        material.color = new Color(.42f, .52f, .36f);
-        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", material.color);
-        AssetDatabase.CreateAsset(material, ruta);
-        return material;
-    }
-
-    static GameObject CrearZombie(string nombre, string origen, RuntimeAnimatorController controlador, Material material)
+    static GameObject CrearZombie(string nombre, string origen, RuntimeAnimatorController controlador)
     {
         Directory.CreateDirectory("Assets/Prefabs/Enemigos");
         var fuente = AssetDatabase.LoadAssetAtPath<GameObject>(origen);
@@ -357,15 +357,17 @@ public static class ConfigurarIsla
         var agente = Obtener<NavMeshAgent>(instancia);
         agente.radius = .35f;
         agente.height = 1.8f;
-        agente.speed = 2.2f;
+        agente.speed = 1.8f;
         agente.angularSpeed = 360f;
+        agente.acceleration = 10f;
         agente.stoppingDistance = 1.35f;
         var acecho = Obtener<EnemigoAcechador>(instancia);
         acecho.radioDeteccion = 12f;
         acecho.rangoAtaque = 1.7f;
         acecho.retrasoAparicion = 0f;
-        acecho.velocidadCaminar = 1.6f;
-        acecho.velocidadCorrer = 3.2f;
+        acecho.velocidadCaminar = 1.8f;
+        acecho.velocidadCorrer = 3.6f;
+        acecho.umbralCorrer = 6f;
         acecho.usarNavMesh = true;
         var vida = Obtener<ControladorVida>(instancia);
         vida.vidaMaxima = 60f;
@@ -388,8 +390,6 @@ public static class ConfigurarIsla
         var anim = Obtener<Animator>(instancia);
         anim.runtimeAnimatorController = controlador;
         anim.applyRootMotion = false;
-        foreach (var renderer in instancia.GetComponentsInChildren<Renderer>())
-            renderer.sharedMaterial = material;
         PonerCapa(instancia, CapasJuego.Enemigos);
         int arma = LayerMask.NameToLayer(CapasJuego.ArmaEnemigo);
         if (arma >= 0) mano.layer = arma;
@@ -697,6 +697,16 @@ public static class ConfigurarIsla
                 return clip;
         foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(ruta))
             if (asset is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
+        return null;
+    }
+
+    // Clip de un FBX de Kevin Iglesias, por nombre parcial del clip. Devuelve null si el paquete no está.
+    static AnimationClip Paquete(string nombre, string rutaRelativa)
+    {
+        string ruta = "Assets/Kevin Iglesias/" + rutaRelativa;
+        foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(ruta))
+            if (asset is AnimationClip clip && !clip.name.StartsWith("__") && clip.name.EndsWith(nombre, StringComparison.OrdinalIgnoreCase))
+                return clip;
         return null;
     }
 
