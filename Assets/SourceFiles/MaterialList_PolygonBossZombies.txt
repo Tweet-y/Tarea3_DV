@@ -1,0 +1,201 @@
+-------------------
+Folder Name: CharacterAttachments
+-------------------
+Prefab Name: SM_Chr_Attach_Blobber_Hair_01
+    Mesh Name: SM_Chr_Attach_Blobber_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Blobber_Hair_02
+    Mesh Name: SM_Chr_Attach_Blobber_Hair_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Blobber_Tiara_01
+    Mesh Name: SM_Chr_Attach_Blobber_Tiara_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Blobber_Tiara_02
+    Mesh Name: SM_Chr_Attach_Blobber_Tiara_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Brute_Bandana_01
+    Mesh Name: SM_Chr_Attach_Brute_Bandana_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Brute_Extra_01
+    Mesh Name: SM_Chr_Attach_Brute_Extra_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Brute_Hair_01
+    Mesh Name: SM_Chr_Attach_Brute_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Brute_Hair_02
+    Mesh Name: SM_Chr_Attach_Brute_Hair_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Slobber_FacialHair_01
+    Mesh Name: SM_Chr_Attach_Slobber_FacialHair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Slobber_Hair_01
+    Mesh Name: SM_Chr_Attach_Slobber_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Wretch_Hair_01
+    Mesh Name: SM_Chr_Attach_Wretch_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_Attach_Wretch_Hair_02
+    Mesh Name: SM_Chr_Attach_Wretch_Hair_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+-------------------
+Folder Name: Props
+-------------------
+Prefab Name: SM_Prop_CarDoor_01
+    Mesh Name: SM_Prop_CarDoor_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Cigarette_01
+    Mesh Name: SM_Prop_Cigarette_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Dumbbell_01
+    Mesh Name: SM_Prop_Dumbbell_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Flowers_01
+    Mesh Name: SM_Prop_Flowers_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_HamLeg_01
+    Mesh Name: SM_Prop_HamLeg_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_HamLeg_02
+    Mesh Name: SM_Prop_HamLeg_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_HamLeg_03
+    Mesh Name: SM_Prop_HamLeg_03
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Handbag_01
+    Mesh Name: SM_Prop_Handbag_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_HeartGlasses_01
+    Mesh Name: SM_Prop_HeartGlasses_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_RebarClub_01
+    Mesh Name: SM_Prop_RebarClub_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Ribbon_01
+    Mesh Name: SM_Prop_Ribbon_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_RollingPin_01
+    Mesh Name: SM_Prop_RollingPin_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Scepter_01
+    Mesh Name: SM_Prop_Scepter_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Scooter_Broken_01
+    Mesh Name: SM_Prop_Scooter_Broken_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_StopSign_01
+    Mesh Name: SM_Prop_StopSign_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_TankBarrel_01
+    Mesh Name: SM_Prop_TankBarrel_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_TrafficLights_01
+    Mesh Name: SM_Prop_TrafficLights_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Prop_Trophy_01
+    Mesh Name: SM_Prop_Trophy_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Veh_Scooter_01
+    Mesh Name: SM_Veh_Scooter_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Chair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Chair_Arm_L
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Chair_Arm_R
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Steering_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Wheel_fl
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Wheel_fr
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Wheel_rl
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Veh_Scooter_Wheel_rr
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+-------------------
+Folder Name: Prefabs
+-------------------
+Prefab Name: SM_Chr_ZombieBoss_Blobber_01
+    Mesh Name: SM_Chr_Attach_Blobber_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Blobber_Hair_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Blobber_Tiara_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Blobber_Tiara_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Blobber_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Brute_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Slobber_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_ZombieBoss_Brute_01
+    Mesh Name: SM_Chr_Attach_Brute_Bandana_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Brute_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Brute_Hair_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Brute_Extra_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Blobber_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Brute_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Slobber_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_ZombieBoss_Slobber_01
+    Mesh Name: SM_Chr_Attach_Slobber_FacialHair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Slobber_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Blobber_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Brute_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Slobber_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+
+Prefab Name: SM_Chr_ZombieBoss_Wretch_01
+    Mesh Name: SM_Chr_Attach_Wretch_Hair_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_Attach_Wretch_Hair_02
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+    Mesh Name: SM_Chr_ZombieBoss_Wretch_01
+        Slot: Polygon_ZombieBoss_01_A (Uses custom shader)
+

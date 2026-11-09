@@ -86,7 +86,7 @@ El nivel que se juega desde el menú es **MapaV2**. Hay **30 botellas**: 29 en l
 - **Audio Mixer** `Assets/Resources/Audio/MezcladorPrincipal.mixer` con grupos Master, Musica, Efectos y Voces.
 - **Cinemáticas** con corrutina: la intro de CJ, el plano del jefe al entrar en su zona y la salida en la lancha. Espacio o A adelantan el diálogo.
 - **Configurar:** `Tools > Isla > Configurar`. **Verificar:** `Tools > Isla > Verificar` escribe `Logs/isla-validada.txt`.
-- Los clips de atacar, recibir golpe y morir se leen de `Assets/Animaciones/Combate/` si existen (Mixamo, FBX for Unity, Without Skin). Sin ellos el Animator igual entra a esos estados.
+- Los clips de atacar, recibir golpe y morir se leen de `Assets/Animaciones/Combate/` (Mixamo, FBX for Unity, Without Skin). `Tools > Isla > Configurar` los asigna también si la capa Combate ya existe. Sin esos archivos el Animator entra a los estados, pero con los clips de locomoción de reemplazo.
 
 ---
 

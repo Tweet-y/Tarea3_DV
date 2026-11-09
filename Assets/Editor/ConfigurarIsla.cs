@@ -42,19 +42,25 @@ public static class ConfigurarIsla
         Directory.CreateDirectory("Logs");
         AsegurarCapas();
         CrearMezclador();
+        PrepararClipsCombate();
+        AvisarClipsFaltantes();
         var idle = Clip("Orc Idle", "Assets/Animaciones/Personajes/Mob/Characters@Orc Idle F.fbx") ?? Clip("Idle", "Assets/Animaciones/Personajes/Mob/Orco_Idle.anim");
         var correr = Clip("Zombie Run", "Assets/Animaciones/Personajes/Mob/Characters@Zombie Run.fbx") ?? Clip("Run", "Assets/Animaciones/Personajes/Mob/Orco_Run.anim");
-        var atacarZ = BuscarCombate("Zombie Attack") ?? correr;
-        var golpeZ = BuscarCombate("Zombie Reaction") ?? BuscarCombate("Reaction Hit") ?? idle;
-        var morirZ = BuscarCombate("Zombie Dying") ?? idle;
+        var ataqueZombie = BuscarCombate("Zombie Attack");
+        var muerteZombie = BuscarCombate("Zombie Dying");
+        var ataqueNemesis = BuscarCombate("Mutant Swiping");
+        var muerteNemesis = BuscarCombate("Mutant Dying");
+        var atacarZ = ataqueZombie ?? correr;
+        var golpeZ = BuscarCombate("Zombie Reaction Hit") ?? idle;
+        var morirZ = muerteZombie ?? idle;
         var idleZ = BuscarCombate("Zombie Idle") ?? idle;
         var andarZ = BuscarCombate("Zombie Walk") ?? correr;
-        var atacarN = BuscarCombate("Mutant Swiping") ?? atacarZ;
-        var morirN = BuscarCombate("Mutant Dying") ?? morirZ;
         var controlador = CrearControladorEnemigo(idleZ, andarZ, atacarZ, golpeZ, morirZ);
         var overrideZ = Override(controlador, "Assets/Animaciones/Personajes/EnemigoCombate_Zombie.overrideController");
-        var overrideN = Override(controlador, "Assets/Animaciones/Personajes/EnemigoCombate_Nemesis.overrideController", atacarZ, atacarN, morirZ, morirN);
-        AgregarCapaJugador(BuscarCombate("Standing Melee"), BuscarCombate("Hit Reaction"), BuscarCombate("Dying"));
+        // Solo se reemplaza el clip propio del ataque o de la muerte. Si falta el del zombie,
+        // ese estado comparte el de caminar o el de reposo y no se puede pisar sin romper la locomoción.
+        var overrideN = Override(controlador, "Assets/Animaciones/Personajes/EnemigoCombate_Nemesis.overrideController", ataqueZombie, ataqueNemesis, muerteZombie, muerteNemesis);
+        AgregarCapaJugador(BuscarCombate("Standing Melee Attack Horizontal"), BuscarCombate("Hit Reaction"), BuscarCombate("Dying"));
         EditorSceneManager.OpenScene(Escena);
         var material = MaterialZombie();
         string[] origenes =
@@ -275,7 +281,11 @@ public static class ConfigurarIsla
         if (controlador.parameters.All(p => p.name != "Atacar")) controlador.AddParameter("Atacar", AnimatorControllerParameterType.Trigger);
         if (controlador.parameters.All(p => p.name != "Golpe")) controlador.AddParameter("Golpe", AnimatorControllerParameterType.Trigger);
         if (controlador.parameters.All(p => p.name != "Morir")) controlador.AddParameter("Morir", AnimatorControllerParameterType.Trigger);
-        if (controlador.layers.Any(l => l.name == "Combate")) return;
+        if (controlador.layers.Any(l => l.name == "Combate"))
+        {
+            AsignarClipsCombate(controlador, atacar, golpe, morir);
+            return;
+        }
         controlador.AddLayer("Combate");
         var capas = controlador.layers;
         int indice = capas.Length - 1;
@@ -302,6 +312,22 @@ public static class ConfigurarIsla
         capas[indice].defaultWeight = 0f;
         capas[indice].blendingMode = AnimatorLayerBlendingMode.Override;
         controlador.layers = capas;
+        EditorUtility.SetDirty(controlador);
+    }
+
+    static void AsignarClipsCombate(AnimatorController controlador, AnimationClip atacar, AnimationClip golpe, AnimationClip morir)
+    {
+        foreach (var capa in controlador.layers)
+        {
+            if (capa.name != "Combate" || capa.stateMachine == null) continue;
+            foreach (var hijo in capa.stateMachine.states)
+            {
+                if (hijo.state == null) continue;
+                if (hijo.state.name == "Atacar" && atacar != null) hijo.state.motion = atacar;
+                else if (hijo.state.name == "Golpe" && golpe != null) hijo.state.motion = golpe;
+                else if (hijo.state.name == "Morir" && morir != null) hijo.state.motion = morir;
+            }
+        }
         EditorUtility.SetDirty(controlador);
     }
 
@@ -674,13 +700,80 @@ public static class ConfigurarIsla
         return null;
     }
 
-    static AnimationClip BuscarCombate(string texto)
+    const string CarpetaCombate = "Assets/Animaciones/Combate";
+
+    static readonly string[] ClipsEsperados =
     {
-        if (string.IsNullOrEmpty(texto)) return null;
-        foreach (var guid in AssetDatabase.FindAssets(texto + " t:AnimationClip"))
+        "Zombie Attack", "Zombie Reaction Hit", "Zombie Dying", "Zombie Idle", "Zombie Walk",
+        "Mutant Swiping", "Mutant Dying",
+        "Standing Melee Attack Horizontal", "Hit Reaction", "Dying"
+    };
+
+    static void AvisarClipsFaltantes()
+    {
+        var faltan = ClipsEsperados.Where(nombre => BuscarCombate(nombre) == null).ToArray();
+        if (faltan.Length == 0) return;
+        Debug.LogWarning("Combate: faltan " + string.Join(", ", faltan) + ". El FBX tiene que llamarse exactamente así, sin sufijos.");
+    }
+
+    static void PrepararClipsCombate()
+    {
+        if (!AssetDatabase.IsValidFolder(CarpetaCombate)) return;
+        foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { CarpetaCombate }))
         {
             string ruta = AssetDatabase.GUIDToAssetPath(guid);
-            if (ruta.IndexOf("Combate", StringComparison.OrdinalIgnoreCase) < 0) continue;
+            if (!ruta.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)) continue;
+            var importer = AssetImporter.GetAtPath(ruta) as ModelImporter;
+            if (importer == null) continue;
+            string archivo = Path.GetFileNameWithoutExtension(ruta);
+            bool loop = archivo == "Zombie Idle" || archivo == "Zombie Walk";
+            var clips = importer.clipAnimations;
+            if (clips == null || clips.Length == 0) clips = importer.defaultClipAnimations;
+            bool clipsListos = clips != null && clips.Length > 0 && clips.All(c => ClipRaizHorneada(c, loop));
+            bool humano = importer.animationType == ModelImporterAnimationType.Human
+                && importer.avatarSetup == ModelImporterAvatarSetup.CreateFromThisModel
+                && importer.importAnimation;
+            if (humano && clipsListos) continue;
+            importer.importAnimation = true;
+            importer.animationType = ModelImporterAnimationType.Human;
+            importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            if (clips != null)
+            {
+                foreach (var clip in clips) HornearRaiz(clip, loop);
+                importer.clipAnimations = clips;
+            }
+            importer.SaveAndReimport();
+        }
+    }
+
+    static void HornearRaiz(ModelImporterClipAnimation clip, bool loop)
+    {
+        clip.loopTime = loop;
+        clip.keepOriginalOrientation = true;
+        clip.keepOriginalPositionY = true;
+        clip.keepOriginalPositionXZ = true;
+        clip.lockRootRotation = true;
+        clip.lockRootHeightY = true;
+        clip.lockRootPositionXZ = true;
+    }
+
+    static bool ClipRaizHorneada(ModelImporterClipAnimation clip, bool loop) =>
+        clip.loopTime == loop
+        && clip.keepOriginalOrientation
+        && clip.keepOriginalPositionY
+        && clip.keepOriginalPositionXZ
+        && clip.lockRootRotation
+        && clip.lockRootHeightY
+        && clip.lockRootPositionXZ;
+
+    static AnimationClip BuscarCombate(string texto)
+    {
+        if (string.IsNullOrEmpty(texto) || !AssetDatabase.IsValidFolder(CarpetaCombate)) return null;
+        foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { CarpetaCombate }))
+        {
+            string ruta = AssetDatabase.GUIDToAssetPath(guid);
+            if (!string.Equals(Path.GetFileNameWithoutExtension(ruta), texto, StringComparison.OrdinalIgnoreCase))
+                continue;
             foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(ruta))
                 if (asset is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
         }
