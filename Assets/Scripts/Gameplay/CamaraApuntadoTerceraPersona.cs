@@ -28,6 +28,9 @@ public sealed class CamaraApuntadoTerceraPersona : MonoBehaviour
             if (activa == null || activa.Target.TrackingTarget == null || !activa.Target.TrackingTarget.IsChildOf(transform)) return;
             var follow = activa.GetComponent<CinemachineThirdPersonFollow>();
             if (follow == null) return;
+            // El personaje se mueve en Update; con SmartUpdate la camara alterna de metodo al correr y vibra.
+            if (brain.UpdateMethod != CinemachineBrain.UpdateMethods.LateUpdate)
+                brain.UpdateMethod = CinemachineBrain.UpdateMethods.LateUpdate;
             virtualCam = activa;
             seguimiento = follow;
             hombroOriginal = follow.ShoulderOffset;

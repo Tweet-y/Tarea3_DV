@@ -30,7 +30,8 @@ public class EnemigoAcechador : MonoBehaviour
     public bool Persiguiendo { get; private set; }
     public bool Atacando { get; private set; }
     bool detectado;
-    float proximoAtaque;
+    float proximoAtaque, aturdidoHasta;
+    Coroutine ataque;
 
     Animator animator;
     NavMeshAgent agente;
@@ -102,6 +103,12 @@ public class EnemigoAcechador : MonoBehaviour
         if (!Persiguiendo || objetivo == null) return;
         var vida = GetComponent<ControladorVida>();
         if (vida != null && vida.Muerto) return;
+        if (Time.time < aturdidoHasta)
+        {
+            if (agente != null && agente.enabled) agente.isStopped = true;
+            Animar(0f);
+            return;
+        }
         float distancia = DistanciaPlana(transform.position, objetivo.position);
         if (radioDeteccion > 0f && !detectado)
         {
@@ -120,7 +127,7 @@ public class EnemigoAcechador : MonoBehaviour
             if (cara.sqrMagnitude > 0.04f)
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(cara), 240f * Time.deltaTime);
             Animar(0f);
-            if (!Atacando && Time.time >= proximoAtaque) StartCoroutine(Atacar());
+            if (!Atacando && Time.time >= proximoAtaque) ataque = StartCoroutine(Atacar());
             return;
         }
         if (agente != null && agente.enabled) agente.isStopped = false;
@@ -142,6 +149,18 @@ public class EnemigoAcechador : MonoBehaviour
             transform.rotation = Quaternion.RotateTowards(transform.rotation, mirar, 120f * Time.deltaTime);
         }
         Animar(velocidad);
+    }
+
+    /// <summary>Interrumpe el ataque y frena al enemigo, como al encajar un impacto.</summary>
+    public void Aturdir(float segundos)
+    {
+        aturdidoHasta = Mathf.Max(aturdidoHasta, Time.time + segundos);
+        if (ataque != null) StopCoroutine(ataque);
+        ataque = null;
+        if (golpe != null) golpe.FinGolpe();
+        Atacando = false;
+        proximoAtaque = Mathf.Max(proximoAtaque, aturdidoHasta);
+        detectado = true;
     }
 
     IEnumerator Atacar()

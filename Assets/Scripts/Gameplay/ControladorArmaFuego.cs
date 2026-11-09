@@ -9,8 +9,10 @@ public sealed class ControladorArmaFuego : MonoBehaviour
     public ArmaFuegoDefinicion Definicion { get; private set; }
     public EstadoMunicion Municion { get; private set; }
     public bool Equipada => modelo != null;
+    /// <summary>Rifle recogido y seleccionado; con el bate activo queda enfundado.</summary>
+    public bool EnMano => Equipada && !DisparoBloqueado;
     public bool Apuntando { get; private set; }
-    public bool SolicitaApuntar => PuedeActuar && Equipada && Municion != null && !Municion.Recargando && apuntar != null && apuntar.IsPressed();
+    public bool SolicitaApuntar => PuedeActuar && EnMano && Municion != null && !Municion.Recargando && apuntar != null && apuntar.IsPressed();
     public float RecargaRestante { get; private set; }
     public float ImpactoHasta { get; private set; }
     public float Retroceso { get; private set; }
@@ -22,7 +24,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         get
         {
             var partida = ControladorPartidaBotellas.Instancia;
-            return enabled && !DisparoBloqueado && !IntroduccionIsla.Activa && Time.timeScale > 0f && partida != null &&
+            return enabled && !IntroduccionIsla.Activa && Time.timeScale > 0f && partida != null &&
                 partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso && !partida.EstaPausada;
         }
     }
@@ -144,6 +146,12 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         }
         gatilloBloqueado = true;
         audioArma.PlayOneShot(click, .5f);
+        // Recoger el rifle lo selecciona; antes el bate lo dejaba enfundado e imposible de usar.
+        if (InventarioJugador.Instancia != null)
+        {
+            InventarioJugador.Instancia.armaActiva = InventarioJugador.Arma.Rifle;
+            InventarioJugador.Instancia.AplicarArma();
+        }
     }
 
     private void Update()
@@ -175,6 +183,22 @@ public sealed class ControladorArmaFuego : MonoBehaviour
             if (Cercana != null && Cercana.Recoger(this)) audioArma.PlayOneShot(click, .6f);
         }
         if (!Equipada) return;
+        if (DisparoBloqueado)
+        {
+            // Enfundado: ocultar el modelo y devolver los brazos a la animacion.
+            if (modelo.gameObject.activeSelf)
+            {
+                poseRifle?.Restaurar();
+                modelo.gameObject.SetActive(false);
+                OcultarEfectos();
+                Municion.CancelarRecarga();
+                RecargaRestante = 0f;
+            }
+            Apuntando = false;
+            siguiendoCamara = false;
+            return;
+        }
+        if (!modelo.gameObject.activeSelf) modelo.gameObject.SetActive(true);
         if (soltar.WasPressedThisFrame()) { Soltar(); return; }
         if (recargar.WasPressedThisFrame()) IniciarRecarga();
         if (Municion.Recargando)
@@ -193,7 +217,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!PuedeActuar || !Equipada || camara == null) return;
+        if (!PuedeActuar || !EnMano || camara == null) return;
         bool fuego = disparar.IsPressed() && !gatilloBloqueado;
         Vector3 frente = Vector3.ProjectOnPlane(camara.transform.forward, Vector3.up).normalized;
         bool orientar = (Apuntando || fuego) && !Municion.Recargando && frente.sqrMagnitude > .01f;
@@ -227,7 +251,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
 
     public bool IniciarRecarga()
     {
-        if (!PuedeActuar || Municion == null || !Municion.IniciarRecarga()) return false;
+        if (!PuedeActuar || !EnMano || Municion == null || !Municion.IniciarRecarga()) return false;
         RecargaRestante = Mathf.Max(.1f, Definicion.segundosRecarga);
         gatilloBloqueado = true;
         audioArma.PlayOneShot(click, .65f);
@@ -236,7 +260,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
 
     public void Soltar()
     {
-        if (!PuedeActuar || !Equipada) return;
+        if (!PuedeActuar || !EnMano) return;
         Municion.CancelarRecarga();
         RecargaRestante = 0f;
         var suelo = SistemaArmasFuego.BuscarSuelo(transform.position + transform.right * 1.1f, transform);
@@ -300,7 +324,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
 
     public bool IntentarDisparar()
     {
-        if (!PuedeActuar || !Equipada || Municion == null || Time.time < proximoDisparo) return false;
+        if (!PuedeActuar || !EnMano || Municion == null || Time.time < proximoDisparo) return false;
         camara = Camera.main;
         if (camara == null || !Municion.Disparar()) return false;
         proximoDisparo = Time.time + 1f / Mathf.Max(1f, Definicion.disparosPorSegundo);
@@ -322,7 +346,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
             {
                 float multiplicador = InventarioJugador.Instancia != null ? InventarioJugador.Instancia.MultiplicadorDanio : 1f;
                 float danio = Definicion.danio * multiplicador * (enemigo.EsCabeza(hit.point) ? Definicion.multiplicadorCabeza : 1f);
-                if (enemigo.RecibirDanio(danio, hit.point)) ImpactoHasta = Time.time + .15f;
+                if (enemigo.RecibirDanio(danio, hit.point, (hit.point - boca).normalized)) ImpactoHasta = Time.time + .15f;
             }
         }
         traza.SetPosition(0, boca);

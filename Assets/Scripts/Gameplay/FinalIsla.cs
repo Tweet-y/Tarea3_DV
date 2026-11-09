@@ -1,7 +1,8 @@
 using System.Collections;
 using UnityEngine;
 
-/// <summary>Al juntar las 30 botellas enciende los fuegos y deja la lancha de CJ.</summary>
+/// <summary>Al juntar las 30 botellas enciende los fuegos y deja la lancha de CJ en muelle_final.
+/// Subir a la lancha inicia la pelea final contra Nemesis (PeleaJefeLancha).</summary>
 public class FinalIsla : MonoBehaviour
 {
     public static FinalIsla Instancia { get; private set; }
@@ -12,10 +13,16 @@ public class FinalIsla : MonoBehaviour
     public Transform lancha;
     public Transform cj;
     public GameObject fuegos;
-    public string linea = "Sube, nos vamos. La isla ya dio todo lo que tenía.";
+    public string linea = "Súbete al tiro, weón, que nos vamos. Esta isla ya no tiene ni una gota de copete.";
     bool salida;
 
-    void Awake() => Instancia = this;
+    void Awake()
+    {
+        Instancia = this;
+        // Estaticos: al reintentar la partida deben empezar de cero.
+        FuegosEncendidos = false;
+        Mensaje = null;
+    }
 
     void OnEnable()
     {
@@ -48,9 +55,10 @@ public class FinalIsla : MonoBehaviour
     {
         if (FuegosEncendidos) return;
         FuegosEncendidos = true;
-        Mensaje = "Ve al bote";
+        Mensaje = "Ve a muelle_final: CJ te espera en la lancha";
         if (puntoExtraccion == null) return;
-        if (lancha != null)
+        bool enMuelle = PeleaJefeLancha.UbicarEnMuelle(lancha, puntoExtraccion, cj);
+        if (lancha != null && !enMuelle)
         {
             lancha.gameObject.SetActive(true);
             lancha.position = puntoExtraccion.position;
@@ -81,7 +89,8 @@ public class FinalIsla : MonoBehaviour
         var partida = ControladorPartidaBotellas.Instancia;
         if (partida == null || partida.Estado != ControladorPartidaBotellas.Resultado.EnCurso) return;
         salida = true;
-        StartCoroutine(Salida());
+        if (PeleaJefeLancha.Instancia != null) PeleaJefeLancha.Instancia.Iniciar();
+        else StartCoroutine(Salida());
     }
 
     IEnumerator Salida()

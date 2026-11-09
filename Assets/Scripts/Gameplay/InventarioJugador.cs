@@ -64,7 +64,50 @@ public class InventarioJugador : MonoBehaviour
         if (Instancia == this) Instancia = null;
     }
 
-    void Start() => AplicarArma();
+    void Start()
+    {
+        AjustarBateEnMano();
+        AplicarArma();
+    }
+
+    // Distancia del pomo al centro del mango del bate Synty (pivote en el pomo, eje +Y hacia la hoja).
+    const float AgarreBate = .15f;
+
+    /// <summary>Coloca el mango en la palma derecha usando la geometria real de la mano, no valores fijos.</summary>
+    void AjustarBateEnMano()
+    {
+        if (bate == null) return;
+        var rig = GetComponentInChildren<Animator>();
+        if (rig == null || !rig.isHuman) return;
+        var mano = rig.GetBoneTransform(HumanBodyBones.RightHand);
+        var medio = rig.GetBoneTransform(HumanBodyBones.RightMiddleProximal);
+        var indice = rig.GetBoneTransform(HumanBodyBones.RightIndexProximal);
+        if (mano == null || medio == null || indice == null) return;
+        var menique = rig.GetBoneTransform(HumanBodyBones.RightLittleProximal);
+        var pulgar = rig.GetBoneTransform(HumanBodyBones.RightThumbProximal);
+
+        Vector3 dedos = mano.InverseTransformDirection(medio.position - mano.position).normalized;
+        Vector3 centro = mano.InverseTransformPoint(Vector3.Lerp(mano.position, (medio.position + indice.position) * .5f, .5f));
+        // El menique queda en el pomo y el indice/pulgar del lado de la hoja.
+        Vector3 ancho = Vector3.zero;
+        if (menique != null) ancho = mano.InverseTransformDirection(indice.position - menique.position);
+        if (Vector3.ProjectOnPlane(ancho, dedos).sqrMagnitude < 1e-6f && pulgar != null)
+            ancho = mano.InverseTransformDirection(pulgar.position - mano.position);
+        ancho = Vector3.ProjectOnPlane(ancho, dedos);
+        if (ancho.sqrMagnitude < 1e-6f) return;
+        ancho.Normalize();
+
+        // Inclinar la hoja hacia arriba: con el brazo caido los dedos apuntan abajo, asi que se aleja de ellos.
+        Vector3 eje = (ancho * Mathf.Cos(40f * Mathf.Deg2Rad) - dedos * Mathf.Sin(40f * Mathf.Deg2Rad)).normalized;
+        Quaternion giro = Quaternion.LookRotation(Vector3.Cross(eje, Vector3.Cross(dedos, eje)).normalized, eje);
+
+        bate.transform.SetParent(mano, false);
+        Vector3 escalaMano = mano.lossyScale;
+        Vector3 escala = new Vector3(1f / Mathf.Max(.0001f, escalaMano.x), 1f / Mathf.Max(.0001f, escalaMano.y), 1f / Mathf.Max(.0001f, escalaMano.z));
+        bate.transform.localScale = escala;
+        bate.transform.localRotation = giro;
+        bate.transform.localPosition = centro - giro * Vector3.Scale(Vector3.up * AgarreBate, escala);
+    }
 
     void Update()
     {
@@ -86,8 +129,10 @@ public class InventarioJugador : MonoBehaviour
 
     public void AplicarArma()
     {
-        if (bate != null) bate.SetActive(armaActiva == Arma.Bate);
         var arma = GetComponent<ControladorArmaFuego>();
+        // Sin rifle en las manos no hay nada que seleccionar: volver al bate.
+        if (armaActiva == Arma.Rifle && (arma == null || !arma.Equipada)) armaActiva = Arma.Bate;
+        if (bate != null) bate.SetActive(armaActiva == Arma.Bate);
         if (arma != null) arma.DisparoBloqueado = armaActiva != Arma.Rifle;
     }
 
