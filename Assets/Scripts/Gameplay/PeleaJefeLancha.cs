@@ -757,14 +757,14 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         Vector3 desde = suelo + haciaLancha * altura * .9f + Vector3.up * altura * .08f + lado * altura * .3f;
         Vector3 hasta = desde - haciaLancha * altura * .25f;
         yield return Plano(dialogo, "NEMESIS", "¿Mis botellas...? ¡Voy a hundir esa lancha con la isla entera!", 3f,
-            s => (Vector3.Lerp(desde, hasta, s), suelo + Vector3.up * altura * .78f), 42f);
+            s => (Vector3.Lerp(desde, hasta, s), suelo + Vector3.up * altura * .78f), 42f, "nemesis_amenaza");
 
         // Plano 3: CJ al timon.
         Vector3 cabezaCJ = (cj != null ? cj.position : lancha.position) + Vector3.up * 1.55f;
         Vector3 frenteCJ = cj != null ? cj.forward : lancha.forward;
         Vector3 ladoCJ = cj != null ? cj.right : lancha.right;
         yield return Plano(dialogo, "CJ", "¡Chucha, se vino el grandote! Yo manejo y le damos la vuelta a la isla. ¡Tú agárrate de la punto cincuenta y revienta toda la wea que nos tire!", 4f,
-            s => (cabezaCJ + frenteCJ * 2.4f + ladoCJ * (.7f - .3f * s) + Vector3.up * .15f, cabezaCJ), 45f);
+            s => (cabezaCJ + frenteCJ * 2.4f + ladoCJ * (.7f - .3f * s) + Vector3.up * .15f, cabezaCJ), 45f, "cj_pelea_inicio");
         dialogo.Cerrar();
 
         // Transicion a primera persona apuntando a Nemesis.
@@ -786,11 +786,11 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
     }
 
     IEnumerator Plano(ControladorDialogo dialogo, string nombre, string linea, float lectura,
-        System.Func<float, (Vector3 pos, Vector3 foco)> camino, float fov)
+        System.Func<float, (Vector3 pos, Vector3 foco)> camino, float fov, string voz = null)
     {
         dialogo.FijarNombre(nombre);
         bool hecho = false;
-        dialogo.StartCoroutine(Envolver(dialogo.Revelar(linea, lectura), () => hecho = true));
+        dialogo.StartCoroutine(Envolver(dialogo.Revelar(linea, lectura, voz), () => hecho = true));
         float s = 0f;
         float largo = lectura + 1.5f;
         while (!hecho)
@@ -844,7 +844,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         };
         bool hecho = false;
         dialogo.FijarNombre("CJ");
-        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Lo botaste, weón! Treinta botellas y un gigante menos... ¡Ahora sí que nos vamos a curar como la gente!", 3.5f), () => hecho = true));
+        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Lo botaste, weón! Treinta botellas y un gigante menos... ¡Ahora sí que nos vamos a curar como la gente!", 3.5f, "cj_final"), () => hecho = true));
         while (!hecho || reloj < 3f)
         {
             reloj += Time.deltaTime;
@@ -1224,9 +1224,10 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         mensaje.fontSizeMax = 40;
 
         // Las frases de CJ van en su propia "radio" a la izquierda, lejos de la mira, los QTE y las barras.
-        var radio = Panel(go.transform, "RadioCJ", new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(190, -20), new Vector2(340, 104), new Color(.05f, .06f, .07f, .78f));
+        var radio = Panel(go.transform, "RadioCJ", new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(190, -20), new Vector2(340, 104), EstiloCurao.Panel);
+        EstiloCurao.Marco(radio.rectTransform, EstiloCurao.Panel, EstiloCurao.Ambar, 3f);
         radioCJ = radio.gameObject;
-        var nombreCJ = Texto(radio.transform, "Nombre", new Vector2(0f, 1f), new Vector2(40, -16), new Vector2(60, 26), 20, new Color32(232, 180, 68, 255));
+        var nombreCJ = Texto(radio.transform, "Nombre", new Vector2(0f, 1f), new Vector2(40, -16), new Vector2(60, 26), 20, EstiloCurao.Ambar);
         nombreCJ.text = "CJ";
         lineaCJ = Texto(radio.transform, "Linea", new Vector2(.5f, .5f), new Vector2(0, -10), new Vector2(316, 70), 22, Color.white);
         lineaCJ.alignment = TextAlignmentOptions.TopLeft;
@@ -1261,14 +1262,12 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         r.anchorMin = r.anchorMax = ancla;
         r.anchoredPosition = pos;
         r.sizeDelta = tam;
-        t.fontSize = size;
-        t.color = color;
-        t.fontStyle = FontStyles.Bold;
+        // La mira y la marca de golpe conservan la fuente por defecto (VT323 no trae "×").
+        bool simbolo = nombre == "Mira" || nombre == "Golpe";
+        EstiloCurao.Aplicar(t, simbolo ? size : size * 1.25f, color, .2f);
+        if (simbolo) t.font = TMP_Settings.defaultFontAsset;
         t.alignment = TextAlignmentOptions.Center;
-        t.raycastTarget = false;
         t.textWrappingMode = TextWrappingModes.NoWrap;
-        t.outlineWidth = .2f;
-        t.outlineColor = new Color32(0, 0, 0, 255);
         return t;
     }
 

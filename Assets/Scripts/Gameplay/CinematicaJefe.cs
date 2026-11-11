@@ -54,8 +54,8 @@ public class CinematicaJefe : MonoBehaviour
             var origen = jefe != null ? jefe.position : transform.position;
             Sonido.Reproducir(grito != null ? grito : BancoSonidos.Actual != null ? BancoSonidos.Actual.grito : null, origen, 1f, "Voces", .65f);
             dialogo = ControladorDialogo.Crear(false);
-            dialogo.FijarNombre("Nemesis");
-            yield return dialogo.StartCoroutine(dialogo.Revelar(linea, 3.2f));
+            dialogo.FijarNombre("NEMESIS");
+            yield return dialogo.StartCoroutine(dialogo.Revelar(linea, 3.2f, "nemesis_zona"));
         }
         finally
         {

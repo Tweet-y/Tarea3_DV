@@ -66,8 +66,25 @@ public class InventarioJugador : MonoBehaviour
 
     void Start()
     {
+        QuitarBatesDuplicados();
         AjustarBateEnMano();
         AplicarArma();
+    }
+
+    /// <summary>
+    /// Reconfigurar la isla varias veces dejaba bates viejos en la mano que nadie ocultaba
+    /// al sacar el rifle. Solo sobrevive el bate referenciado por el inventario.
+    /// </summary>
+    void QuitarBatesDuplicados()
+    {
+        if (bate == null) return;
+        foreach (var golpe in GetComponentsInChildren<GolpeMelee>(true))
+        {
+            if (golpe.transform.IsChildOf(bate.transform)) continue;
+            var raiz = golpe.transform.parent != null ? golpe.transform.parent.gameObject : golpe.gameObject;
+            raiz.SetActive(false);
+            Destroy(raiz);
+        }
     }
 
     // Distancia del pomo al centro del mango del bate Synty (pivote en el pomo, eje +Y hacia la hoja).

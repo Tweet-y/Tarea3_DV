@@ -9,7 +9,13 @@ using UnityEngine.AI;
 [DefaultExecutionOrder(-300)]
 public sealed class IntroduccionIsla : MonoBehaviour
 {
-    public const string Dialogo = "Ya po, weón, hoy nos vamos a curar como corresponde. Anda a buscar todo el copete que haya en esta isla, yo te espero al otro lado, ¿cachai?";
+    // Cada línea: (texto, clip opcional en Resources/Voces).
+    public static readonly (string texto, string voz)[] Dialogo =
+    {
+        ("¡Ya po, weón! Hoy nos vamos a curar como corresponde.", "cj_intro_1"),
+        ("Anda a buscar todo el copete que haya en esta isla: son treinta botellas. Yo te espero en el muelle, ¿cachai?", "cj_intro_2"),
+        ("Y ojo, que la isla está llena de zombies. Si se ponen pesados, el bate los calma al tiro.", "cj_intro_3"),
+    };
     private static IntroduccionIsla instancia;
     public static bool Extra { get; set; }
     public static bool Activa => (instancia != null && instancia.enCurso) || Extra;
@@ -129,7 +135,8 @@ public sealed class IntroduccionIsla : MonoBehaviour
             }
             dialogo.Negro.color = Color.clear;
             dialogo.FijarNombre("CJ");
-            yield return dialogo.StartCoroutine(dialogo.Revelar(Dialogo, segundosLectura));
+            foreach (var (texto, voz) in Dialogo)
+                yield return dialogo.StartCoroutine(dialogo.Revelar(texto, segundosLectura, voz));
             dialogo.Ocultar();
             Vector3 salida = Vector3.ProjectOnPlane(lancha.position - jugador.transform.position, Vector3.up).normalized;
             if (salida.sqrMagnitude < .1f) salida = lancha.forward;

@@ -129,9 +129,9 @@ public static class ValidarCiudadFinal
                     if (b.tipo == ObjetoEspecialColeccionable.TipoBotella.Curativa) b.Recoger(jugador);
                 foreach (var b in partida.Botellas.ToArray()) if (b != null) b.Recoger(jugador);
                 Exigir(partida.Estado == ControladorPartidaBotellas.Resultado.Victoria, "Todas las botellas objetivo activan la victoria.");
-                var textos = UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsSortMode.None);
-                Exigir(textos.Any(t => t.text == "mission passed!") && textos.Any(t => t.text == "RESPECT + 99"),
-                    "Victoria muestra mission passed! y RESPECT + 99.");
+                var titulos = UnityEngine.Object.FindObjectsByType<TextoPixelGraphic>(FindObjectsSortMode.None);
+                Exigir(titulos.Any(t => t.name == "TituloResultado" && t.Contenido == ControladorMenus.TituloVictoria),
+                    "Victoria muestra " + ControladorMenus.TituloVictoria + ".");
                 Exigir(!UnityEngine.Object.FindFirstObjectByType<ControladorGameplayHUD>().transform.Find("MapaCiudad").gameObject.activeSelf,
                     "El mapa se oculta al finalizar.");
                 desdeCaptura = EditorApplication.timeSinceStartup;
