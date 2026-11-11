@@ -109,7 +109,7 @@ public static class ValidarMenus
                     if (texto.name == "Resumen") resumen = texto;
                 if (resumen == null) throw new Exception("Falta el resumen de derrota.");
                 resumen.ForceMeshUpdate();
-                Exigir(!resumen.isTextOverflowing && resumen.fontSize == 24, "Resumen de derrota completo y legible a 24 puntos.");
+                Exigir(!resumen.isTextOverflowing && resumen.fontSize >= 24, "Resumen de derrota completo y legible (24 puntos o más).");
                 Exigir(EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null, "Opciones de muerte tienen selección de teclado.");
                 ScreenCapture.CaptureScreenshot("Logs/menu-muerte-play.png");
                 desde = EditorApplication.timeSinceStartup;

@@ -55,7 +55,7 @@ public class FinalIsla : MonoBehaviour
     {
         if (FuegosEncendidos) return;
         FuegosEncendidos = true;
-        Mensaje = "Ve a muelle_final: CJ te espera en la lancha";
+        Mensaje = "¡AL MUELLE, CJ TE ESPERA!";
         if (puntoExtraccion == null) return;
         bool enMuelle = PeleaJefeLancha.UbicarEnMuelle(lancha, puntoExtraccion, cj);
         if (lancha != null && !enMuelle)
@@ -100,7 +100,7 @@ public class FinalIsla : MonoBehaviour
         SuspensionCinematica.Tomar(jugador);
         var dialogo = ControladorDialogo.Crear(false);
         dialogo.FijarNombre("CJ");
-        yield return dialogo.StartCoroutine(dialogo.Revelar(linea, 3f));
+        yield return dialogo.StartCoroutine(dialogo.Revelar(linea, 3f, "cj_salida"));
         dialogo.Ocultar();
         if (!ControladorDialogo.Saltar && lancha != null)
         {

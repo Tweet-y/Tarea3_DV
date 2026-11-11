@@ -569,8 +569,9 @@ public static class ConfigurarIsla
 
     static void EquiparBate(GameObject jugador, AudioClip swoosh)
     {
-        var previo = jugador.transform.Find("Bate");
-        if (previo != null) UnityEngine.Object.DestroyImmediate(previo.gameObject);
+        // El bate cuelga del hueso de la mano, no del jugador: buscar en toda la jerarquia.
+        foreach (var previo in jugador.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Bate").ToArray())
+            if (previo != null) UnityEngine.Object.DestroyImmediate(previo.gameObject);
         var fuente = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Synty/PolygonBattleRoyale/Prefabs/Weapons/SM_Wep_Bat_01.prefab");
         var bate = (GameObject)PrefabUtility.InstantiatePrefab(fuente);
         bate.name = "Bate";
