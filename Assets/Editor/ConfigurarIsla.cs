@@ -48,10 +48,10 @@ public static class ConfigurarIsla
         var correr = Clip("Zombie Run", "Assets/Animaciones/Personajes/Mob/Characters@Zombie Run.fbx") ?? Clip("Run", "Assets/Animaciones/Personajes/Mob/Orco_Run.anim");
         var ataqueZombie = BuscarCombate("Zombie Attack");
         var muerteZombie = BuscarCombate("Zombie Dying");
-        var ataqueNemesis = BuscarCombate("Mutant Swiping");
+        var ataqueNemesis = ConEventosArma(BuscarCombate("Mutant Swiping"));
         var muerteNemesis = BuscarCombate("Mutant Dying");
         // Respaldo: clips Humanoid de Kevin Iglesias (Basic Motions + Melee Warrior) si faltan los de Mixamo.
-        var atacarZ = ataqueZombie ?? Paquete("Attack01", "Melee Warrior Animations/Animations/OneHanded/RightHand/RightHand@Attack01.fbx") ?? correr;
+        var atacarZ = ConEventosArma(ataqueZombie ?? Paquete("Attack01", "Melee Warrior Animations/Animations/OneHanded/RightHand/RightHand@Attack01.fbx")) ?? correr;
         var golpeZ = BuscarCombate("Zombie Reaction Hit") ?? Paquete("TakeDamage01", "Melee Warrior Animations/Animations/OneHanded/1H@TakeDamage01.fbx") ?? idle;
         var morirZ = muerteZombie ?? Paquete("Death01_A", "Melee Warrior Animations/Animations/MeleeWarrior@Death01.fbx") ?? idle;
         var idleZ = BuscarCombate("Zombie Idle") ?? Paquete("Idle01", "Basic Motions/Animations/Idles/BasicMotions@Idle01.fbx") ?? idle;
@@ -63,7 +63,7 @@ public static class ConfigurarIsla
         // ese estado comparte el de caminar o el de reposo y no se puede pisar sin romper la locomoción.
         var overrideN = Override(controlador, "Assets/Animaciones/Personajes/EnemigoCombate_Nemesis.overrideController", ataqueZombie, ataqueNemesis, muerteZombie, muerteNemesis);
         AgregarCapaJugador(
-            BuscarCombate("Standing Melee Attack Horizontal") ?? Paquete("Attack02", "Melee Warrior Animations/Animations/OneHanded/RightHand/RightHand@Attack02.fbx"),
+            ConEventosArma(BuscarCombate("Standing Melee Attack Horizontal") ?? Paquete("Attack02", "Melee Warrior Animations/Animations/OneHanded/RightHand/RightHand@Attack02.fbx")),
             BuscarCombate("Hit Reaction") ?? Paquete("TakeDamage02", "Melee Warrior Animations/Animations/OneHanded/1H@TakeDamage02.fbx"),
             BuscarCombate("Dying") ?? Paquete("Death02_A", "Melee Warrior Animations/Animations/MeleeWarrior@Death02.fbx"));
         EditorSceneManager.OpenScene(Escena);
@@ -701,6 +701,35 @@ public static class ConfigurarIsla
     }
 
     // Clip de un FBX de Kevin Iglesias, por nombre parcial del clip. Devuelve null si el paquete no está.
+    // Eventos ActivaArma / DesactivaArma en el clip de ataque, como Ataque01.anim del curso.
+    // ponytail: ventana fija 25 %–65 % del clip (el curso usa ~21 %–76 %); medir el swing por clip si algún ataque pega en el aire.
+    static AnimationClip ConEventosArma(AnimationClip clip)
+    {
+        if (clip == null) return null;
+        string ruta = AssetDatabase.GetAssetPath(clip);
+        var importer = AssetImporter.GetAtPath(ruta) as ModelImporter;
+        if (importer == null) return clip;
+        var clips = importer.clipAnimations;
+        if (clips == null || clips.Length == 0) clips = importer.defaultClipAnimations;
+        bool cambio = false;
+        foreach (var c in clips)
+        {
+            if (c.name != clip.name) continue;
+            var eventos = c.events ?? new AnimationEvent[0];
+            if (eventos.Any(e => e.functionName == "ActivaArma")) return clip;
+            c.events = eventos.Where(e => e.functionName != "DesactivaArma").Concat(new[]
+            {
+                new AnimationEvent { functionName = "ActivaArma", time = .25f },
+                new AnimationEvent { functionName = "DesactivaArma", time = .65f }
+            }).ToArray();
+            cambio = true;
+        }
+        if (!cambio) return clip;
+        importer.clipAnimations = clips;
+        importer.SaveAndReimport();
+        return AssetDatabase.LoadAllAssetsAtPath(ruta).OfType<AnimationClip>().First(c => c.name == clip.name);
+    }
+
     static AnimationClip Paquete(string nombre, string rutaRelativa)
     {
         string ruta = "Assets/Kevin Iglesias/" + rutaRelativa;

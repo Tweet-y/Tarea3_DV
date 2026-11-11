@@ -118,5 +118,6 @@ graphify-out/
 !README.md
 .claude/
 .serena/
-# Plan local de HUD (documento de trabajo ignorado)
+
+# Archivos de uso local
 /local

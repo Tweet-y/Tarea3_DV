@@ -168,12 +168,44 @@ public class EnemigoAcechador : MonoBehaviour
         Atacando = true;
         if (animator != null && TieneParametro("Atacar")) animator.SetTrigger("Atacar");
         Sonido.Reproducir(sonidoAtaque != null ? sonidoAtaque : BancoSonidos.Actual != null ? BancoSonidos.Actual.swoosh : null, transform.position, .7f, "Efectos");
-        yield return new WaitForSeconds(.25f);
-        if (golpe != null) golpe.InicioGolpe();
-        yield return new WaitForSeconds(.22f);
+        var clip = ClipConEventos(animator);
+        if (clip != null)
+        {
+            // El clip abre y cierra el golpe con ActivaArma / DesactivaArma, como Ataque01 del curso.
+            yield return new WaitForSeconds(clip.length);
+        }
+        else
+        {
+            yield return new WaitForSeconds(.25f);
+            if (golpe != null) golpe.InicioGolpe();
+            yield return new WaitForSeconds(.22f);
+        }
+        // Por si un golpe recibido cortó el clip antes de DesactivaArma.
         if (golpe != null) golpe.FinGolpe();
         proximoAtaque = Time.time + cadenciaAtaque;
         Atacando = false;
+    }
+
+    // Eventos de animación del clip de ataque.
+    public void ActivaArma()
+    {
+        if (Atacando && enabled && golpe != null) golpe.InicioGolpe();
+    }
+
+    public void DesactivaArma()
+    {
+        if (golpe != null) golpe.FinGolpe();
+    }
+
+    /// <summary>Clip del Animator que trae el evento ActivaArma, o null si el golpe va por tiempo.</summary>
+    public static AnimationClip ClipConEventos(Animator animador)
+    {
+        if (animador == null || animador.runtimeAnimatorController == null) return null;
+        foreach (var clip in animador.runtimeAnimatorController.animationClips)
+            if (clip != null)
+                foreach (var evento in clip.events)
+                    if (evento.functionName == "ActivaArma") return clip;
+        return null;
     }
 
     void Animar(float velocidad)

@@ -57,11 +57,32 @@ public class AtaqueMeleeJugador : MonoBehaviour
             animador.SetTrigger("Atacar");
         }
         Sonido.Reproducir(swoosh != null ? swoosh : BancoSonidos.Actual != null ? BancoSonidos.Actual.swoosh : null, transform.position, .7f, "Efectos");
-        yield return new WaitForSeconds(esperaGolpe);
-        if (golpe != null) golpe.InicioGolpe();
-        yield return new WaitForSeconds(duracionGolpe);
+        var clip = EnemigoAcechador.ClipConEventos(animador);
+        if (clip != null)
+        {
+            // El clip abre y cierra el golpe con ActivaArma / DesactivaArma (AnimacionCuraoPrincipal los reenvía).
+            yield return new WaitForSeconds(clip.length * .9f);
+        }
+        else
+        {
+            yield return new WaitForSeconds(esperaGolpe);
+            if (golpe != null) golpe.InicioGolpe();
+            yield return new WaitForSeconds(duracionGolpe);
+        }
+        // Por si un golpe recibido cortó el clip antes de DesactivaArma.
         if (golpe != null) golpe.FinGolpe();
         golpeando = false;
+    }
+
+    // Eventos de animación del clip de ataque, como ControladorJugador del curso.
+    public void ActivaArma()
+    {
+        if (golpeando && golpe != null) golpe.InicioGolpe();
+    }
+
+    public void DesactivaArma()
+    {
+        if (golpe != null) golpe.FinGolpe();
     }
 
     public static bool TieneClip(Animator animador)

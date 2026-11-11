@@ -117,6 +117,9 @@ public static class ValidarIsla
                 golpeA.FinGolpe();
                 golpeA.transform.position = sitio;
                 Exigir(Mathf.Approximately(vidaB.Vida, antes), "El golpe de un zombie no daña a otro zombie.");
+                Exigir(EnemigoAcechador.ClipConEventos(zombies[0].GetComponent<Animator>()) != null
+                    && EnemigoAcechador.ClipConEventos(jugador.GetComponentInChildren<Animator>()) != null,
+                    "Los clips de ataque abren el golpe con eventos ActivaArma / DesactivaArma.");
                 var bate = jugador.GetComponentInChildren<GolpeMelee>();
                 Exigir(bate != null, "El jugador tiene el bate.");
                 vidaAntes = partida.Vida;

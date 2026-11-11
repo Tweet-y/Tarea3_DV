@@ -35,6 +35,10 @@ public sealed class AnimacionCuraoPrincipal : MonoBehaviour
         if (movimiento != null && evento.animatorClipInfo.weight > .5f) ReproducirAterrizaje();
     }
 
+    // El Animator vive en el modelo; los eventos del clip de ataque llegan aquí y se reenvían al bate.
+    public void ActivaArma() => GetComponentInParent<AtaqueMeleeJugador>()?.ActivaArma();
+    public void DesactivaArma() => GetComponentInParent<AtaqueMeleeJugador>()?.DesactivaArma();
+
     private void Update()
     {
         if (movimiento == null || capsula == null || !movimiento.enabled || Time.deltaTime <= 0f) return;
