@@ -15,6 +15,8 @@ Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel in
 - **Menú (`MenuInicio`):** botón de inicio que carga el nivel.
 - **HUD:** salud, botellas objetivo y puntos actualizados por `ControladorGameplayHUD` desde `ControladorPartidaBotellas`.
 - **Cierre:** pantalla de resumen con el resultado de la partida, y desde ahí el regreso al menú.
+- **Estilo común:** `EstiloUI` define la paleta de atardecer (oro, rosa, magenta, noche) y las fuentes de toda la interfaz, con contorno negro grueso y sombra dura. Lo usan el HUD, los menús, la pantalla de carga, los diálogos (franjas de cine) y el HUD de la pelea del jefe. Las opciones de menú son texto con una franja inclinada (`FormaUIGraphic`, `RealceBotonMenu`).
+- **Fuentes:** **Anton** (HUD y menús) y **Bangers** (títulos), ambas con licencia **SIL Open Font License 1.1**; los archivos y sus licencias están en `Assets/Resources/Fuentes/`. El texto largo usa LiberationSans, la fuente por defecto de TextMesh Pro.
 
 ### Sonido: efectos y música de fondo
 - **Música de fondo** en loop durante el nivel.

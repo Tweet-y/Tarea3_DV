@@ -59,9 +59,6 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
     Vector3 bocaLocal, camaraLocal, armaBase;
     AudioSource audioArma;
     AudioClip clipDisparo;
-    readonly LineRenderer[] trazas = new LineRenderer[4];
-    int traza;
-    float trazaHasta;
     Light fogonazo;
     float yaw, pitch, zoom, calor, retroceso, sacudida, proximoDisparo, fogonazoHasta;
     bool sobrecalentada;
@@ -449,22 +446,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         fogonazo.intensity = 5f;
         fogonazo.enabled = false;
 
-        for (int i = 0; i < trazas.Length; i++)
-        {
-            var go = new GameObject("Traza50_" + i);
-            go.transform.SetParent(transform, false);
-            var lr = go.AddComponent<LineRenderer>();
-            lr.sharedMaterial = EfectosPelea.MaterialParticulas;
-            lr.positionCount = 2;
-            lr.useWorldSpace = true;
-            lr.startWidth = .07f;
-            lr.endWidth = .03f;
-            lr.startColor = new Color(1f, .85f, .4f, 1f);
-            lr.endColor = new Color(1f, .6f, .2f, .5f);
-            lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            lr.enabled = false;
-            trazas[i] = lr;
-        }
+        CrearEfectosArma();
 
         audioArma = gameObject.AddComponent<AudioSource>();
         audioArma.playOnAwake = false;
@@ -918,6 +900,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
 
     void LateUpdate()
     {
+        if (fase == Fase.Final) ApagarEfectosArma();
         if (fase != Fase.Combate || camara == null || partida == null || partida.EstaPausada || Time.timeScale <= 0f) return;
         float dt = Time.deltaTime;
         var aim = Quaternion.Euler(pitch - retroceso, yaw, 0f);
@@ -928,9 +911,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         sacudida = Mathf.MoveTowards(sacudida, 0f, dt * 2.2f);
         camara.transform.SetPositionAndRotation(pivote.TransformPoint(camaraLocal) + temblor, aim * Quaternion.Euler(0f, 0f, balanceo));
         camara.fieldOfView = Mathf.Lerp(62f, 34f, zoom);
-        if (fogonazo != null) fogonazo.enabled = Time.time < fogonazoHasta;
-        if (Time.time >= trazaHasta)
-            foreach (var lr in trazas) if (lr != null) lr.enabled = false;
+        ActualizarEfectosArma(dt);
         ActualizarHUD();
     }
 
@@ -972,6 +953,8 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         {
             calor = Mathf.Max(0f, calor - dt * Enfriamiento * 1.1f);
             if (calor <= .3f) sobrecalentada = false;
+            bool pulsado = (mouse != null && mouse.leftButton.wasPressedThisFrame) || (pad != null && pad.rightTrigger.wasPressedThisFrame);
+            if (pulsado) ClicSeco();
             return;
         }
         if (gatillo && !bloqueoDisparo)
@@ -990,9 +973,14 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             calor = 1f;
             sobrecalentada = true;
             Mensaje("¡SOBRECALENTADA!", 1.2f);
+            EfectoSobrecalentada();
         }
         retroceso = Mathf.Min(retroceso + .55f, 2.2f);
         sacudida = Mathf.Max(sacudida, .22f);
+        // El cañón se va hacia arriba y baila hacia los lados en ráfagas largas; apuntando se controla mejor.
+        float control = Mathf.Lerp(1f, .5f, zoom);
+        yaw += Random.Range(-.1f, .1f) * control;
+        pitch = Mathf.Clamp(pitch - .04f * control, -60f, 25f);
         var cam = camara.transform;
         float dispersion = Mathf.Lerp(.9f, .3f, zoom) * Mathf.Deg2Rad;
         Vector2 e = Random.insideUnitCircle * Mathf.Tan(dispersion);
@@ -1029,19 +1017,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
                 EfectosPelea.Salpicadura(fin, .35f);
             }
         }
-        var lr = trazas[traza];
-        traza = (traza + 1) % trazas.Length;
-        if (lr != null)
-        {
-            lr.SetPosition(0, boca);
-            lr.SetPosition(1, fin);
-            lr.enabled = true;
-        }
-        trazaHasta = Time.time + .05f;
-        fogonazoHasta = Time.time + .04f;
-        EfectosPelea.Rafaga(boca, pivote.forward, new Color(1f, .85f, .4f), new Color(1f, .5f, .15f), 6, new Vector2(2f, 5f),
-            new Vector2(.15f, .3f), new Vector2(.04f, .08f), 0f, 18f, .5f);
-        if (clipDisparo != null) audioArma.PlayOneShot(clipDisparo, .7f);
+        EfectosDisparo(boca, fin);
     }
 
     bool Impactar(Vector3 origen, Vector3 dir, out RaycastHit resultado)
@@ -1216,20 +1192,26 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         danioPantalla = Panel(go.transform, "Danio", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(.8f, 0f, 0f, 0f));
         mira = Texto(go.transform, "Mira", new Vector2(.5f, .5f), Vector2.zero, new Vector2(80, 80), 40, Color.white);
         mira.text = "+";
-        marcaGolpe = Texto(go.transform, "Golpe", new Vector2(.5f, .5f), Vector2.zero, new Vector2(80, 80), 46, new Color(1f, .3f, .2f));
+        marcaGolpe = Texto(go.transform, "Golpe", new Vector2(.5f, .5f), Vector2.zero, new Vector2(80, 80), 46, EstiloUI.Rojo);
         marcaGolpe.text = "×";
-        mensaje = Texto(go.transform, "Mensaje", new Vector2(.5f, 1f), new Vector2(0, -120), new Vector2(900, 56), 40, new Color32(255, 214, 102, 255));
+        // Mira y marca de impacto conservan el trazo fino de la fuente de cuerpo.
+        EstiloUI.Aplicar(mira, EstiloUI.Fuente.Cuerpo, .2f, false);
+        EstiloUI.Aplicar(marcaGolpe, EstiloUI.Fuente.Cuerpo, .2f, false);
+        mira.fontStyle = marcaGolpe.fontStyle = FontStyles.Bold;
+        mensaje = Texto(go.transform, "Mensaje", new Vector2(.5f, 1f), new Vector2(0, -120), new Vector2(900, 60), 44, EstiloUI.Oro);
         mensaje.enableAutoSizing = true;
         mensaje.fontSizeMin = 22;
-        mensaje.fontSizeMax = 40;
+        mensaje.fontSizeMax = 44;
 
         // Las frases de CJ van en su propia "radio" a la izquierda, lejos de la mira, los QTE y las barras.
-        var radio = Panel(go.transform, "RadioCJ", new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(190, -20), new Vector2(340, 104), EstiloCurao.Panel);
-        EstiloCurao.Marco(radio.rectTransform, EstiloCurao.Panel, EstiloCurao.Ambar, 3f);
+        var radio = Panel(go.transform, "RadioCJ", new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(190, -20), new Vector2(340, 104), new Color(.05f, .03f, .1f, .84f));
         radioCJ = radio.gameObject;
-        var nombreCJ = Texto(radio.transform, "Nombre", new Vector2(0f, 1f), new Vector2(40, -16), new Vector2(60, 26), 20, EstiloCurao.Ambar);
+        Panel(radio.transform, "Filo", new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(2.5f, 0), new Vector2(5, 0), EstiloUI.Oro);
+        var nombreCJ = Texto(radio.transform, "Nombre", new Vector2(0f, 1f), new Vector2(44, -17), new Vector2(60, 28), 22, EstiloUI.Oro);
         nombreCJ.text = "CJ";
         lineaCJ = Texto(radio.transform, "Linea", new Vector2(.5f, .5f), new Vector2(0, -10), new Vector2(316, 70), 22, Color.white);
+        EstiloUI.Aplicar(lineaCJ, EstiloUI.Fuente.Cuerpo, .2f);
+        lineaCJ.fontStyle = FontStyles.Bold;
         lineaCJ.alignment = TextAlignmentOptions.TopLeft;
         lineaCJ.textWrappingMode = TextWrappingModes.Normal;
         lineaCJ.enableAutoSizing = true;
@@ -1245,7 +1227,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         ayuda.text = "Clic izq. / RT: disparar · Clic der. / LT: apuntar\nDestruye lo que lanza antes de que caiga";
         grupoAyuda = ayuda.gameObject.AddComponent<CanvasGroup>();
 
-        Panel(go.transform, "CalorFondo", new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(0, 92), new Vector2(304, 18), new Color(0f, 0f, 0f, .6f));
+        Panel(go.transform, "CalorFondo", new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(0, 92), new Vector2(306, 20), Color.black);
         rellenoCalorImg = Panel(go.transform, "CalorRelleno", new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(-150, 92), new Vector2(300, 14), new Color(1f, .75f, .2f));
         rellenoCalor = rellenoCalorImg.rectTransform;
         rellenoCalor.pivot = new Vector2(0f, .5f);
@@ -1262,11 +1244,11 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         r.anchorMin = r.anchorMax = ancla;
         r.anchoredPosition = pos;
         r.sizeDelta = tam;
-        // La mira y la marca de golpe conservan la fuente por defecto (VT323 no trae "×").
-        bool simbolo = nombre == "Mira" || nombre == "Golpe";
-        EstiloCurao.Aplicar(t, simbolo ? size : size * 1.25f, color, .2f);
-        if (simbolo) t.font = TMP_Settings.defaultFontAsset;
+        EstiloUI.Aplicar(t, EstiloUI.Fuente.Hud, .22f);
+        t.fontSize = size;
+        t.color = color;
         t.alignment = TextAlignmentOptions.Center;
+        t.raycastTarget = false;
         t.textWrappingMode = TextWrappingModes.NoWrap;
         return t;
     }

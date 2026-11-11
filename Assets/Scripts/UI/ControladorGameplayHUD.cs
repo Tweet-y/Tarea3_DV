@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 
-/// <summary>HUD compacto de cerveza, ebriedad y resistencia al desmayo.</summary>
+/// <summary>HUD de partida: arma, vida, botellas, puntos y radar, con el estilo común de EstiloUI.</summary>
 public sealed class ControladorGameplayHUD : MonoBehaviour
 {
     private ControladorPartidaBotellas partida;
@@ -16,7 +16,8 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     private GameObject imagenBotella, imagenArma, marcoRecarga;
     private RectTransform rellenoRecarga;
     private float objetivoEbriedad, objetivoVida = 1f, visualEbriedad, visualVida = 1f;
-    private float tiempoPickup;
+    private float tiempoPickup, duracionPickup = .45f;
+    private Image vidaImagen;
     private RectTransform marcoMapa, vidaMapa, ebriedadMapa;
     private RectTransform objetivoInicial;
     private TMP_Text indicadorAyuda;
@@ -37,8 +38,6 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ReiniciarAyuda() => ayudaVisible = null;
     private Canvas lienzo;
-    private const float EscalaFuente = 1.3f;
-    private readonly List<Material> materialesTexto = new List<Material>();
 
     public void Inicializar(ControladorPartidaBotellas fuente)
     {
@@ -83,7 +82,6 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
             partida.BotellaRecogida -= Recogida;
             partida.PartidaTerminada -= MostrarResultado;
         }
-        foreach (var material in materialesTexto) Destroy(material);
     }
 
     private void Construir()
@@ -97,71 +95,57 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         scaler.matchWidthOrHeight = .5f;
         ConstruirMapa();
 
-        var root = Nodo(transform, "GameplayHUD", new Vector2(1, 1), new Vector2(-30, -26), new Vector2(280, 332));
+        // Columna alineada a la derecha: arma, vida, botellas y puntos, todo con contorno negro grueso.
+        var root = Nodo(transform, "GameplayHUD", new Vector2(1, 1), new Vector2(-28, -22), new Vector2(300, 310));
         root.pivot = new Vector2(1, 1);
-        // Primer hijo: queda detrás de todo el contenido y se oculta junto con el HUD.
-        var fondoHud = Nodo(root, "FondoHUD", new Vector2(0, 1), new Vector2(-14, 14), new Vector2(308, 360));
-        EstiloCurao.Marco(fondoHud, EstiloCurao.PanelSuave, EstiloCurao.Turquesa);
-        icono = Nodo(root, "BottleIcon", new Vector2(0, 1), Vector2.zero, new Vector2(88, 90));
-        var marcoIcono = Caja(icono, "MarcoIcono", Vector2.zero, new Vector2(88, 90), EstiloCurao.Noche);
-        EstiloCurao.Marco(marcoIcono, EstiloCurao.Noche, EstiloCurao.Ambar, 3f, false);
-        var botella = Nodo(icono, "BeerSilhouette", new Vector2(0, 1), new Vector2(13, -8), new Vector2(62, 74));
+        icono = Nodo(root, "BottleIcon", new Vector2(0, 1), Vector2.zero, new Vector2(88, 84));
+        Forma(icono, "BlackFrame", new Vector2(-6, 0), new Vector2(88, 84), Color.black, 12);
+        Forma(icono, "WhiteInset", new Vector2(-1, -5), new Vector2(78, 74), new Color32(64, 40, 96, 255), 10, new Color32(150, 72, 132, 255));
+        var botella = Nodo(icono, "BeerSilhouette", new Vector2(0, 1), new Vector2(13, -5), new Vector2(62, 74));
         botella.gameObject.AddComponent<BottleHudGraphic>().raycastTarget = false;
         imagenBotella = botella.gameObject;
-        var rifle = Nodo(icono, "MiniaturaArma", new Vector2(0, 1), new Vector2(5, -5), new Vector2(78, 80));
+        var rifle = Nodo(icono, "MiniaturaArma", new Vector2(0, 1), new Vector2(5, -2), new Vector2(78, 80));
         rifle.gameObject.AddComponent<IconoRifleGraphic>().raycastTarget = false;
         imagenArma = rifle.gameObject;
         imagenArma.SetActive(false);
 
-        municion = Texto(root, "MunicionArma", "--", new Vector2(99, 0), new Vector2(181, 38), 30, Color.white);
-        nombreArma = Texto(root, "NombreArma", "SIN ARMA", new Vector2(99, -44), new Vector2(181, 22), 17, Color.white);
-        rellenoRecarga = Barra(root, "ProgresoRecarga", new Vector2(99, -76), new Vector2(181, 10), EstiloCurao.Ambar);
+        municion = Texto(root, "MunicionArma", "--", new Vector2(100, 0), new Vector2(200, 46), 38, Color.white);
+        nombreArma = Texto(root, "NombreArma", "SIN ARMA", new Vector2(100, -48), new Vector2(200, 24), 18, EstiloUI.Oro);
+        rellenoRecarga = Barra(root, "ProgresoRecarga", new Vector2(100, -76), new Vector2(200, 10), EstiloUI.Oro);
         marcoRecarga = rellenoRecarga.parent.parent.gameObject;
         marcoRecarga.SetActive(false);
-        contador = Texto(root, "BottleCounter", $"BOTELLAS 00 / {partida.Total:00}", new Vector2(0, -102), new Vector2(280, 30), 24, EstiloCurao.Ambar);
-        vidaEtiqueta = Texto(root, "HealthLabel", "VIDA 100%", new Vector2(0, -140), new Vector2(280, 22), 17, EstiloCurao.Texto);
-        vidaFill = Barra(root, "PlayerHealth", new Vector2(0, -166), new Vector2(280, 20), EstiloCurao.Rojo);
-        etiquetaMedidor = Texto(root, "DrunkLabel", "EBRIEDAD", new Vector2(0, -196), new Vector2(280, 22), 17, EstiloCurao.Texto);
-        ebriedadFill = Barra(root, "DrunkMeter", new Vector2(0, -220), new Vector2(280, 16), EstiloCurao.Ambar);
-        restantes = Texto(root, "RemainingText", $"QUEDAN {partida.Total}", new Vector2(0, -244), new Vector2(280, 30), 24, EstiloCurao.Verde);
-        aviso = Texto(root, "DangerStatus", "SOBRIO", new Vector2(0, -278), new Vector2(280, 22), 16, EstiloCurao.Durazno);
-        aviso.enableAutoSizing = true;
-        aviso.fontSizeMin = 14;
-        aviso.fontSizeMax = aviso.fontSize;
-        puntos = Texto(root, "Score", "PUNTOS 0000", new Vector2(0, -304), new Vector2(280, 24), 17, EstiloCurao.TextoTenue);
-        feedback = Texto(root, "BottlePickupFeedback", "+1", new Vector2(0, -102), new Vector2(40, 28), 20, EstiloCurao.Texto);
+        vidaEtiqueta = Texto(root, "HealthLabel", "VIDA 100%", new Vector2(0, -94), new Vector2(300, 22), 17, Color.white);
+        vidaFill = Barra(root, "PlayerHealth", new Vector2(0, -118), new Vector2(300, 20), EstiloUI.Rojo);
+        vidaImagen = vidaFill.GetComponent<Image>();
+        etiquetaMedidor = Texto(root, "DrunkLabel", "EBRIEDAD", new Vector2(0, -144), new Vector2(300, 22), 17, Color.white);
+        ebriedadFill = Barra(root, "DrunkMeter", new Vector2(0, -168), new Vector2(300, 16), EstiloUI.Oro);
+        contador = Texto(root, "BottleCounter", $"00 / {partida.Total:00}", new Vector2(0, -188), new Vector2(300, 46), 38, EstiloUI.Oro);
+        restantes = Texto(root, "RemainingText", $"QUEDAN {partida.Total}", new Vector2(0, -234), new Vector2(300, 22), 17, EstiloUI.Rosa);
+        puntos = Texto(root, "Score", "PUNTOS 0000", new Vector2(0, -256), new Vector2(300, 34), 28, EstiloUI.Verde);
+        aviso = Texto(root, "DangerStatus", "SOBRIO", new Vector2(0, -290), new Vector2(300, 20), 15, Color.white);
+        feedback = Texto(root, "BottlePickupFeedback", "+1", new Vector2(40, -188), new Vector2(120, 46), 30, Color.white);
+        feedback.alignment = TextAlignmentOptions.Left;
         feedback.gameObject.SetActive(false);
 
-        indicadorAyuda = Texto(transform, "AtajoIndicaciones", "", new Vector2(24, -22), new Vector2(450, 28), 16, EstiloCurao.Ambar);
+        indicadorAyuda = Texto(transform, "AtajoIndicaciones", "", new Vector2(24, -22), new Vector2(450, 28), 16, EstiloUI.Oro);
         indicadorAyuda.alignment = TextAlignmentOptions.Left;
         objetivoInicial = Nodo(transform, "ObjetivoInicial", new Vector2(0, 1),
-            new Vector2(24, -58), new Vector2(430, 236));
-        EstiloCurao.Marco(objetivoInicial, EstiloCurao.PanelSuave, EstiloCurao.Turquesa);
-        var objetivo = Texto(objetivoInicial, "TextoObjetivo", TextoMision(), Vector2.zero, Vector2.zero, 17, EstiloCurao.Texto);
+            new Vector2(24, -66), new Vector2(430, 268));
+        var fondoObjetivo = objetivoInicial.gameObject.AddComponent<Image>();
+        fondoObjetivo.color = new Color(.05f, .03f, .1f, .82f);
+        fondoObjetivo.raycastTarget = false;
+        Caja(objetivoInicial, "Filo", Vector2.zero, new Vector2(5, 268), EstiloUI.Oro);
+        var objetivo = Texto(objetivoInicial, "TextoObjetivo",
+            $"<color={EstiloUI.HexOro}>OBJETIVO</color>\nConsigue las 30 botellas de la isla.\nLuego ve a muelle_final con CJ.\n\n<color={EstiloUI.HexOro}>CONTROLES</color>\nWASD: mover · Espacio: saltar · Shift: correr\n1 bate · 2 rifle · Clic izq.: golpear o disparar\nQ botiquín · F bebida · E recoger · Esc pausa",
+            Vector2.zero, Vector2.zero, 18, Color.white, EstiloUI.Fuente.Cuerpo);
+        objetivo.fontStyle = FontStyles.Bold;
         objetivo.rectTransform.anchorMin = Vector2.zero;
         objetivo.rectTransform.anchorMax = Vector2.one;
-        objetivo.rectTransform.offsetMin = new Vector2(18, 14);
-        objetivo.rectTransform.offsetMax = new Vector2(-16, -14);
+        objetivo.rectTransform.offsetMin = new Vector2(18, 16);
+        objetivo.rectTransform.offsetMax = new Vector2(-18, -16);
         objetivo.alignment = TextAlignmentOptions.TopLeft;
-        objetivo.characterSpacing = 0;
-        objetivo.lineSpacing = -6;
         objetivo.textWrappingMode = TextWrappingModes.Normal;
-        objetivo.enableAutoSizing = true;
-        objetivo.fontSizeMin = 16;
-        objetivo.fontSizeMax = objetivo.fontSize;
-    }
 
-    private string TextoMision()
-    {
-        string turquesa = ColorUtility.ToHtmlStringRGB(EstiloCurao.Turquesa);
-        string ambar = ColorUtility.ToHtmlStringRGB(EstiloCurao.Ambar);
-        string tenue = ColorUtility.ToHtmlStringRGB(EstiloCurao.TextoTenue);
-        return $"<color=#{turquesa}>MISIÓN</color>\n" +
-            $"Junta las {partida.Total} botellas de copete de la isla y llega al muelle: CJ te espera con la lancha.\n" +
-            $"<color=#{ambar}>CONTROLES</color>\n" +
-            $"<color=#{tenue}>WASD</color> mover  <color=#{tenue}>SHIFT</color> correr  <color=#{tenue}>ESPACIO</color> saltar\n" +
-            $"<color=#{tenue}>1</color> bate  <color=#{tenue}>2</color> rifle  <color=#{tenue}>CLIC</color> golpear / disparar\n" +
-            $"<color=#{tenue}>Q</color> botiquín  <color=#{tenue}>F</color> bebida  <color=#{tenue}>E</color> recoger  <color=#{tenue}>M</color> mapa";
     }
 
     private void ConstruirMapa()
@@ -187,19 +171,23 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         mapa.offsetMin = mapa.offsetMax = Vector2.zero;
         mapaCiudad = mapa.gameObject.AddComponent<MapaCiudadGraphic>();
         mapaCiudad.Inicializar(partida, marcoMapa);
-        var norte = Texto(borde, "IndicadorNorte", "N", Vector2.zero, new Vector2(36, 36), 24, EstiloCurao.Turquesa);
+        var cj = Texto(borde, "IdentificadorCJ", "CJ", Vector2.zero, new Vector2(42, 36), 27, Color.white);
+        cj.rectTransform.anchorMin = cj.rectTransform.anchorMax = new Vector2(0, .5f);
+        cj.rectTransform.pivot = new Vector2(.5f, .5f);
+        cj.alignment = TextAlignmentOptions.Center;
+        var norte = Texto(borde, "IndicadorNorte", "N", Vector2.zero, new Vector2(36, 36), 27, Color.white);
         norte.rectTransform.anchorMin = norte.rectTransform.anchorMax = new Vector2(.5f, 1);
         norte.rectTransform.pivot = new Vector2(.5f, .5f);
         norte.alignment = TextAlignmentOptions.Center;
-        var leyenda = Texto(marcoMapa, "LeyendaMapa", "M: MAPA GRANDE", new Vector2(8, -256), new Vector2(240, 18), 13, EstiloCurao.Ambar);
+        var leyenda = Texto(marcoMapa, "LeyendaMapa", "N ↑   EXPLORA · M: MAPA", new Vector2(8, -256), new Vector2(240, 16), 13, EstiloUI.Oro);
         leyenda.rectTransform.anchorMin = leyenda.rectTransform.anchorMax = Vector2.zero;
         leyenda.rectTransform.anchoredPosition = new Vector2(8, 39);
         leyenda.alignment = TextAlignmentOptions.Center;
-        vidaMapa = Barra(marcoMapa, "VidaMapa", Vector2.zero, new Vector2(118, 11), EstiloCurao.Rojo);
+        vidaMapa = Barra(marcoMapa, "VidaMapa", Vector2.zero, new Vector2(118, 11), EstiloUI.Rojo);
         var barraVida = (RectTransform)vidaMapa.parent.parent;
         barraVida.anchorMin = barraVida.anchorMax = Vector2.zero;
         barraVida.anchoredPosition = new Vector2(8, 20);
-        ebriedadMapa = Barra(marcoMapa, "EbriedadMapa", Vector2.zero, new Vector2(118, 11), EstiloCurao.Ambar);
+        ebriedadMapa = Barra(marcoMapa, "EbriedadMapa", Vector2.zero, new Vector2(118, 11), EstiloUI.Oro);
         var barraEbriedad = (RectTransform)ebriedadMapa.parent.parent;
         barraEbriedad.anchorMin = barraEbriedad.anchorMax = Vector2.zero;
         barraEbriedad.anchoredPosition = new Vector2(130, 20);
@@ -213,12 +201,12 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
             : partida.EbriedadNormalizada;
         objetivoVida = partida.Vida;
         vidaEtiqueta.text = $"VIDA {Mathf.RoundToInt(partida.Vida * 100f)}%";
-        contador.text = $"BOTELLAS {partida.Recogidas:00} / {partida.Total:00}";
+        contador.text = $"{partida.Recogidas:00} / {partida.Total:00}";
         restantes.text = $"QUEDAN {partida.Restantes}";
         if (puntos != null) puntos.text = $"PUNTOS {partida.Puntos:0000}";
         if (isla)
         {
-            etiquetaMedidor.text = $"BOTELLAS {partida.Recogidas}/{partida.Total}";
+            etiquetaMedidor.text = "BOTELLAS";
             aviso.text = string.IsNullOrEmpty(FinalIsla.Mensaje) ? "JUNTA LAS BOTELLAS" : FinalIsla.Mensaje;
         }
         else
@@ -256,12 +244,20 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         ebriedadMapa.localScale = new Vector3(visualEbriedad, 1, 1);
         bool isla = partida.gameObject.scene.name == "MapaV2";
         aviso.color = !isla && objetivoEbriedad >= .85f
-            ? Color.Lerp(EstiloCurao.Durazno, EstiloCurao.Rojo, .5f + .5f * Mathf.Sin(Time.unscaledTime * 7))
-            : (Color)EstiloCurao.Durazno;
+            ? Color.Lerp(Color.white, new Color32(255, 90, 75, 255), .5f + .5f * Mathf.Sin(Time.unscaledTime * 7))
+            : Color.white;
+        // Con poca vida la barra late, como aviso sin texto.
+        if (vidaImagen != null)
+            vidaImagen.color = objetivoVida < .25f
+                ? Color.Lerp(EstiloUI.Rojo, Color.white, .5f + .5f * Mathf.Sin(Time.unscaledTime * 9f))
+                : EstiloUI.Rojo;
         if (tiempoPickup > 0)
         {
             tiempoPickup = Mathf.Max(0, tiempoPickup - Time.unscaledDeltaTime);
-            contador.rectTransform.localScale = Vector3.one * (1 + .04f * Mathf.Sin(tiempoPickup / .45f * Mathf.PI));
+            float fase = 1f - tiempoPickup / duracionPickup;
+            contador.rectTransform.localScale = Vector3.one * (1 + .06f * Mathf.Sin(fase * Mathf.PI));
+            feedback.rectTransform.anchoredPosition = new Vector2(40, -188 + 16f * fase);
+            feedback.alpha = Mathf.Clamp01(2.5f * (1f - fase));
             feedback.gameObject.SetActive(tiempoPickup > 0);
         }
         else contador.rectTransform.localScale = Vector3.one;
@@ -274,7 +270,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         imagenArma.SetActive(equipada);
         var balas = equipada ? armaJugador.Municion : null;
         municion.text = equipada ? $"{balas.Cargador:00} - {balas.Reserva:000}" : "--";
-        municion.color = equipada && balas.Cargador == 0 ? (Color)EstiloCurao.Rojo : EstiloCurao.Texto;
+        municion.color = equipada && balas.Cargador == 0 ? EstiloUI.Rojo : Color.white;
         nombreArma.text = !equipada ? "SIN ARMA" : balas.Recargando ? $"RECARGANDO {armaJugador.RecargaRestante:0.0}s" : "RIFLE DE ASALTO";
         marcoRecarga.SetActive(equipada && balas.Recargando);
         if (equipada && balas.Recargando)
@@ -286,18 +282,18 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         var inventario = InventarioJugador.Instancia;
         if (inventarioHud == null)
         {
-            inventarioHud = Texto(transform, "Inventario", "", new Vector2(24, 78), new Vector2(620, 28), 18, EstiloCurao.Texto);
+            inventarioHud = Texto(transform, "Inventario", "", new Vector2(296, 30), new Vector2(760, 28), 19, Color.white);
             inventarioHud.alignment = TextAlignmentOptions.Left;
             inventarioHud.rectTransform.anchorMin = inventarioHud.rectTransform.anchorMax = Vector2.zero;
             inventarioHud.rectTransform.pivot = Vector2.zero;
         }
         if (inventario == null) { inventarioHud.text = ""; return; }
-        string activo = ColorUtility.ToHtmlStringRGB(EstiloCurao.Turquesa);
-        string apagado = ColorUtility.ToHtmlStringRGB(EstiloCurao.TextoTenue);
+        string activo = EstiloUI.HexOro;
+        string apagado = "#" + ColorUtility.ToHtmlStringRGB(EstiloUI.Gris);
         bool bate = inventario.armaActiva == InventarioJugador.Arma.Bate;
-        string armas = $"<color=#{(bate ? activo : apagado)}>[1] BATE</color>  <color=#{(!bate ? activo : apagado)}>[2] RIFLE</color>";
+        string armas = $"<color={(bate ? activo : apagado)}>[1] BATE</color>  <color={(!bate ? activo : apagado)}>[2] RIFLE</color>";
         inventarioHud.text = $"{armas}    BOTIQUÍN x{inventario.botiquines} [Q]    BEBIDA x{inventario.buffs} [F]" +
-            (inventario.BuffActivo ? $"    <color=#{ColorUtility.ToHtmlStringRGB(EstiloCurao.Rosa)}>¡PRENDIDO!</color>" : "");
+            (inventario.BuffActivo ? $"    <color={EstiloUI.HexRosa}>¡PRENDIDO!</color>" : "");
     }
 
     void ActualizarJefe()
@@ -312,10 +308,10 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         }
         if (vidaJefeFill == null)
         {
-            vidaJefe = Texto(transform, "NombreJefe", "NEMESIS", new Vector2(0, -16), new Vector2(420, 24), 18, EstiloCurao.Rojo);
+            vidaJefe = Texto(transform, "NombreJefe", "NEMESIS", new Vector2(0, -16), new Vector2(420, 28), 22, EstiloUI.Oro);
             vidaJefe.alignment = TextAlignmentOptions.Center;
             vidaJefe.rectTransform.anchorMin = vidaJefe.rectTransform.anchorMax = new Vector2(.5f, 1f);
-            vidaJefeFill = Barra(vidaJefe.rectTransform, "VidaJefe", new Vector2(0, -28), new Vector2(420, 16), EstiloCurao.Rojo);
+            vidaJefeFill = Barra(vidaJefe.rectTransform, "VidaJefe", new Vector2(0, -30), new Vector2(420, 18), EstiloUI.Rojo);
         }
         vidaJefe.gameObject.SetActive(true);
         vidaJefeFill.localScale = new Vector3(jefe.Fraccion, 1f, 1f);
@@ -323,16 +319,15 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
 
     private void Recogida()
     {
-        tiempoPickup = .45f;
+        tiempoPickup = duracionPickup = .6f;
         feedback.text = "+1";
-        feedback.color = EstiloCurao.Ambar;
+        feedback.color = Color.white;
     }
     private void CuracionRecogida()
     {
-        tiempoPickup = .8f;
+        tiempoPickup = duracionPickup = .9f;
         feedback.text = "+VIDA";
-        feedback.color = new Color32(96, 196, 255, 255);
-        feedback.rectTransform.sizeDelta = new Vector2(90, 26);
+        feedback.color = EstiloUI.Celeste;
     }
 
     private static string TextoCausa(ControladorPartidaBotellas.Causa causa)
@@ -359,13 +354,16 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         bool victoria = estado == ControladorPartidaBotellas.Resultado.Victoria;
         var menu = new GameObject("MenuResultado", typeof(RectTransform)).AddComponent<ControladorMenus>();
         menu.ConstruirResultado(victoria,
-            $"BOTELLAS {partida.Recogidas}/{partida.Total}     PUNTOS {partida.Puntos}\n{TextoCausa(partida.CausaFinal)}");
+            $"{partida.Recogidas} / {partida.Total} BOTELLAS\nPUNTOS {partida.Puntos}\n{TextoCausa(partida.CausaFinal)}");
     }
 
     private RectTransform Barra(Transform parent, string nombre, Vector2 pos, Vector2 size, Color color)
     {
-        var frame = Caja(parent, nombre, pos, size, EstiloCurao.Sombra);
-        var inset = Caja(frame, "Empty", new Vector2(3, -3), size - new Vector2(6, 6), new Color32(52, 36, 80, 255));
+        var frame = Caja(parent, nombre, pos, size, Color.black);
+        // El hueco vacío es el mismo color de la barra, apagado.
+        var vacio = Color.Lerp(color, Color.black, .7f);
+        vacio.a = 1f;
+        var inset = Caja(frame, "Empty", new Vector2(3, -3), size - new Vector2(6, 6), vacio);
         var fill = Caja(inset, "Fill", Vector2.zero, size - new Vector2(6, 6), color);
         return fill;
     }
@@ -391,18 +389,31 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         return rect;
     }
 
-    private TMP_Text Texto(Transform parent, string nombre, string valor, Vector2 pos, Vector2 size, float fontSize, Color color)
+    private static RectTransform Forma(Transform parent, string nombre, Vector2 pos, Vector2 size, Color color, float inclinacion, Color? arriba = null)
+    {
+        var rect = Nodo(parent, nombre, new Vector2(0, 1), pos, size);
+        var forma = rect.gameObject.AddComponent<FormaUIGraphic>();
+        forma.color = color;
+        forma.Inclinacion = inclinacion;
+        if (arriba.HasValue)
+        {
+            forma.Degradado = true;
+            forma.Horizontal = false;
+            forma.ColorB = arriba.Value;
+        }
+        forma.raycastTarget = false;
+        return rect;
+    }
+
+    private static TMP_Text Texto(Transform parent, string nombre, string valor, Vector2 pos, Vector2 size, float fontSize, Color color,
+        EstiloUI.Fuente fuente = EstiloUI.Fuente.Hud)
     {
         var rect = Nodo(parent, nombre, new Vector2(0, 1), pos, size);
         var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-        // VT323 se ve más chica que la fuente anterior a igual tamaño en puntos.
-        EstiloCurao.Aplicar(text, fontSize * EscalaFuente, color, 0f);
-        var material = new Material(text.fontSharedMaterial);
-        materialesTexto.Add(material);
-        text.fontMaterial = material;
+        EstiloUI.Aplicar(text, fuente, fuente == EstiloUI.Fuente.Cuerpo ? .2f : .25f);
         text.text = valor;
-        text.outlineColor = EstiloCurao.Sombra;
-        text.outlineWidth = .28f;
+        text.fontSize = fontSize;
+        text.color = color;
         text.alignment = TextAlignmentOptions.Right;
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.raycastTarget = false;
