@@ -20,12 +20,13 @@ public sealed class HUDArmaFuego : MonoBehaviour
         scaler.referenceResolution = new Vector2(1280, 720);
         scaler.matchWidthOrHeight = .5f;
 
-        controles = Texto("Controles", transform, new Vector2(1, 0), new Vector2(-164, 58), new Vector2(280, 60), 15);
-        controles.outlineColor = Color.black;
-        controles.outlineWidth = .2f;
+        controles = Texto("Controles", transform, new Vector2(1, 0), new Vector2(-178, 58), new Vector2(300, 60), 15);
+        controles.alignment = TextAlignmentOptions.Right;
         controles.textWrappingMode = TextWrappingModes.Normal;
-        interaccion = Texto("Interaccion", transform, new Vector2(.5f, .5f), new Vector2(0, -110), new Vector2(600, 60), 20);
+        interaccion = Texto("Interaccion", transform, new Vector2(.5f, .5f), new Vector2(0, -110), new Vector2(600, 60), 24);
         mira = Texto("Mira", transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(80, 80), 20);
+        // La mira conserva un trazo fino; el resto del HUD usa la fuente gruesa.
+        EstiloUI.Aplicar(mira, EstiloUI.Fuente.Cuerpo, .2f, false);
         mira.text = "+";
     }
 
@@ -40,7 +41,7 @@ public sealed class HUDArmaFuego : MonoBehaviour
         bool ayuda = ControladorGameplayHUD.IndicacionesVisibles;
         controles.gameObject.SetActive(ayuda);
         mira.gameObject.SetActive(equipada && !municion.Recargando);
-        mira.color = Time.time < jugador.ImpactoHasta ? new Color(1f, .3f, .22f) : Color.white;
+        mira.color = Time.time < jugador.ImpactoHasta ? EstiloUI.Rojo : Color.white;
         mira.text = Time.time < jugador.ImpactoHasta ? "×" : "+";
         mira.fontSize = jugador.Apuntando ? 16 : 20 + jugador.Retroceso * 3f;
         if (equipada)
@@ -55,7 +56,7 @@ public sealed class HUDArmaFuego : MonoBehaviour
             controles.text = mando ? "Acercate a un rifle y pulsa X" : "Acercate a un rifle y pulsa E";
         }
         var item = jugador.Cercana;
-        interaccion.text = item == null ? "" : (mando ? "[X] " : "[E] ") +
+        interaccion.text = item == null ? "" : $"<color={EstiloUI.HexOro}>{(mando ? "[X]" : "[E]")}</color> " +
             (item.SoloMunicion ? $"Municion de rifle +{item.Balas}" : "Recoger rifle de asalto");
     }
 
@@ -73,6 +74,7 @@ public sealed class HUDArmaFuego : MonoBehaviour
     {
         var rect = Rect(nombre, padre, ancla, posicion, tamano);
         var texto = rect.gameObject.AddComponent<TextMeshProUGUI>();
+        EstiloUI.Aplicar(texto, EstiloUI.Fuente.Hud, .22f);
         texto.fontSize = puntos;
         texto.color = Color.white;
         texto.alignment = TextAlignmentOptions.Center;

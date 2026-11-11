@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-/// <summary>Caja de diálogo con máquina de escribir. Espacio o A adelantan.</summary>
+/// <summary>Diálogo con franjas de cine y máquina de escribir. Espacio o A adelantan.</summary>
 public sealed class ControladorDialogo : MonoBehaviour
 {
     public static bool Saltar;
@@ -12,6 +12,7 @@ public sealed class ControladorDialogo : MonoBehaviour
     CanvasGroup panel;
     TMP_Text texto;
     TMP_Text indicacion;
+    float alfaObjetivo;
 
     public static ControladorDialogo Crear(bool conFundido)
     {
@@ -30,22 +31,27 @@ public sealed class ControladorDialogo : MonoBehaviour
             dialogo.Negro.color = Color.black;
             dialogo.Negro.raycastTarget = false;
         }
-        var caja = Rect("Dialogo", objeto.transform, new Vector2(.08f, .06f), new Vector2(.92f, .32f));
-        var fondo = caja.gameObject.AddComponent<Image>();
-        fondo.color = new Color32(17, 21, 20, 240);
-        fondo.raycastTarget = false;
+        // Franjas de cine: quien habla y su línea van sobre la franja inferior, sin caja flotante.
+        var caja = Rect("Dialogo", objeto.transform, Vector2.zero, Vector2.one);
         dialogo.panel = caja.gameObject.AddComponent<CanvasGroup>();
         dialogo.panel.alpha = 0f;
-        var nombre = Texto("Nombre", caja, new Vector2(.025f, .73f), new Vector2(.975f, .98f), 28);
+        dialogo.panel.interactable = dialogo.panel.blocksRaycasts = false;
+        Franja("FranjaSuperior", caja, new Vector2(0, .915f), Vector2.one, 0f);
+        Franja("FranjaInferior", caja, Vector2.zero, new Vector2(1, .26f), 1f);
+        var nombre = Texto("Nombre", caja, new Vector2(.1f, .185f), new Vector2(.9f, .245f), 28, EstiloUI.Fuente.Hud);
         nombre.text = "CJ";
-        nombre.color = new Color32(232, 180, 68, 255);
-        dialogo.texto = Texto("Texto", caja, new Vector2(.025f, .20f), new Vector2(.975f, .73f), 24);
+        nombre.color = EstiloUI.Oro;
+        nombre.characterSpacing = 5;
+        dialogo.texto = Texto("Texto", caja, new Vector2(.12f, .06f), new Vector2(.88f, .185f), 25, EstiloUI.Fuente.Cuerpo);
+        dialogo.texto.fontStyle = FontStyles.Bold;
         dialogo.texto.enableAutoSizing = true;
-        dialogo.texto.fontSizeMin = 20;
-        dialogo.texto.fontSizeMax = 24;
+        dialogo.texto.fontSizeMin = 19;
+        dialogo.texto.fontSizeMax = 25;
         dialogo.texto.textWrappingMode = TextWrappingModes.Normal;
-        dialogo.indicacion = Texto("Continuar", caja, new Vector2(.025f, .025f), new Vector2(.975f, .19f), 16);
+        dialogo.indicacion = Texto("Continuar", caja, new Vector2(.1f, .012f), new Vector2(.975f, .055f), 14, EstiloUI.Fuente.Hud);
         dialogo.indicacion.text = "ESPACIO / A · Mostrar diálogo";
+        dialogo.indicacion.color = EstiloUI.Gris;
+        dialogo.indicacion.characterSpacing = 3;
         dialogo.indicacion.alignment = TextAlignmentOptions.Right;
         return dialogo;
     }
@@ -58,7 +64,8 @@ public sealed class ControladorDialogo : MonoBehaviour
 
     public IEnumerator Revelar(string linea, float segundosLectura)
     {
-        panel.alpha = 1f;
+        alfaObjetivo = 1f;
+        if (Saltar) panel.alpha = 1f;
         texto.text = linea;
         texto.maxVisibleCharacters = 0;
         texto.ForceMeshUpdate();
@@ -86,7 +93,8 @@ public sealed class ControladorDialogo : MonoBehaviour
 
     public void Ocultar()
     {
-        if (panel != null) panel.alpha = 0f;
+        alfaObjetivo = 0f;
+        if (panel != null && Saltar) panel.alpha = 0f;
     }
 
     public void Cerrar()
@@ -105,6 +113,8 @@ public sealed class ControladorDialogo : MonoBehaviour
 
     void Update()
     {
+        // Las franjas entran y salen con un fundido corto en vez de aparecer de golpe.
+        if (panel != null) panel.alpha = Mathf.MoveTowards(panel.alpha, alfaObjetivo, Time.unscaledDeltaTime * 5f);
         var canvas = GetComponent<Canvas>();
         if (canvas == null) return;
         var partida = ControladorPartidaBotellas.Instancia;
@@ -121,12 +131,27 @@ public sealed class ControladorDialogo : MonoBehaviour
         return rect;
     }
 
-    static TMP_Text Texto(string nombre, Transform padre, Vector2 minimo, Vector2 maximo, int tamano)
+    static void Franja(string nombre, Transform padre, Vector2 minimo, Vector2 maximo, float borde)
+    {
+        var franja = Rect(nombre, padre, minimo, maximo);
+        var fondo = franja.gameObject.AddComponent<Image>();
+        fondo.color = new Color(.03f, .02f, .06f, .93f);
+        fondo.raycastTarget = false;
+        // Filo dorado en el lado que mira a la imagen.
+        var filo = Rect("Filo", franja, new Vector2(0, borde), new Vector2(1, borde));
+        filo.sizeDelta = new Vector2(0, 3);
+        var color = filo.gameObject.AddComponent<Image>();
+        color.color = EstiloUI.Oro;
+        color.raycastTarget = false;
+    }
+
+    static TMP_Text Texto(string nombre, Transform padre, Vector2 minimo, Vector2 maximo, int tamano, EstiloUI.Fuente fuente)
     {
         var etiqueta = Rect(nombre, padre, minimo, maximo).gameObject.AddComponent<TextMeshProUGUI>();
+        EstiloUI.Aplicar(etiqueta, fuente, .22f);
         etiqueta.fontSize = tamano;
         etiqueta.color = Color.white;
-        etiqueta.alignment = TextAlignmentOptions.Left;
+        etiqueta.alignment = TextAlignmentOptions.Center;
         etiqueta.raycastTarget = false;
         return etiqueta;
     }

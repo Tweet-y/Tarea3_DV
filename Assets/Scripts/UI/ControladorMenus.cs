@@ -11,8 +11,16 @@ public sealed class ControladorMenus : MonoBehaviour
 {
     public const string EscenaMenu = "MenuInicio";
     public const string EscenaJuego = "MapaV2";
-    private static readonly Color Verde = new Color32(170, 198, 99, 255);
-    private static readonly Color Tinta = new Color32(17, 21, 20, 255);
+    private static readonly Color Tinta = EstiloUI.Noche;
+    private static readonly string[] Consejos =
+    {
+        "Las botellas azules devuelven vida. Guárdalas para cuando la cosa se ponga fea.",
+        "El radar solo muestra lo que ya exploraste. Camina la isla completa.",
+        "Con el rifle en la mano, apunta antes de disparar: la mira se cierra.",
+        "Una caída de más de cuatro metros duele. Mira antes de saltar.",
+        "Nemesis guarda la última botella. Llega con munición.",
+        "H esconde las indicaciones cuando ya te sabes los controles."
+    };
     private CanvasGroup opciones;
     private Button primerBoton;
     private TMP_Text estadoCarga;
@@ -74,14 +82,16 @@ public sealed class ControladorMenus : MonoBehaviour
         PrepararCanvas();
         Fondo(transform, "Fondo", Tinta);
         FondoPixel();
-        var titulo = Rect(transform, "TituloPixel", new Vector2(.06f, .60f), new Vector2(.94f, .95f));
-        var letras = titulo.gameObject.AddComponent<TextoPixelGraphic>();
-        letras.Contenido = "SUPER CURAO\nMAN";
-        letras.color = new Color32(57, 216, 182, 255);
-        letras.ConSombra = true;
-        letras.raycastTarget = false;
-        var contenido = Rect(transform, "BotonesCentrados", new Vector2(.5f, .36f), new Vector2(.5f, .36f));
-        contenido.sizeDelta = new Vector2(300, 188);
+        PanelLateral(.94f);
+        var titulo = Titulo("TituloPixel", $"SUPER CURAO\n<size=125%><color={EstiloUI.HexRosa}>MAN</color></size>",
+            new Vector2(.06f, .56f), new Vector2(.62f, .95f), 118);
+        titulo.lineSpacing = -28;
+        var lema = TextoAnclado(transform, "Lema", "LA ISLA TIENE 30 BOTELLAS. TÚ TIENES SED.",
+            new Vector2(.07f, .50f), new Vector2(560, 28), 20, EstiloUI.Rosa);
+        lema.characterSpacing = 6;
+        var contenido = Rect(transform, "BotonesCentrados", new Vector2(.07f, .29f), new Vector2(.07f, .29f));
+        contenido.pivot = new Vector2(0, .5f);
+        contenido.sizeDelta = new Vector2(420, 188);
         primerBoton = BotonPixel(contenido, "Iniciar Juego", 64, () => Cargar(EscenaJuego));
         BotonPixel(contenido, "Probar Jefe", 0, () =>
         {
@@ -89,8 +99,56 @@ public sealed class ControladorMenus : MonoBehaviour
             Cargar(EscenaJuego);
         });
         BotonPixel(contenido, "Salir", -64, Salir);
+        PieDeAyuda();
         CrearCarga();
         if (Application.isPlaying) StartCoroutine(Seleccionar(primerBoton));
+    }
+
+    /// <summary>Sombra lateral: el texto del menú se lee sobre cualquier fondo sin taparlo entero.</summary>
+    private void PanelLateral(float opacidad)
+    {
+        var panel = Rect(transform, "PanelLateral", Vector2.zero, new Vector2(.7f, 1));
+        var forma = panel.gameObject.AddComponent<FormaUIGraphic>();
+        forma.color = new Color(Tinta.r, Tinta.g, Tinta.b, opacidad);
+        forma.Degradado = true;
+        forma.ColorB = new Color(Tinta.r, Tinta.g, Tinta.b, 0);
+        forma.raycastTarget = false;
+    }
+
+    private TMP_Text Titulo(string nombre, string valor, Vector2 min, Vector2 max, float tamano)
+    {
+        var rect = Rect(transform, nombre, min, max);
+        rect.localRotation = Quaternion.Euler(0, 0, 3f);
+        var texto = rect.gameObject.AddComponent<TextMeshProUGUI>();
+        EstiloUI.Aplicar(texto, EstiloUI.Fuente.Titulo, .3f);
+        texto.text = valor;
+        texto.color = EstiloUI.Oro;
+        texto.alignment = TextAlignmentOptions.BottomLeft;
+        texto.textWrappingMode = TextWrappingModes.NoWrap;
+        texto.enableAutoSizing = true;
+        texto.fontSizeMin = 40;
+        texto.fontSizeMax = tamano;
+        texto.raycastTarget = false;
+        return texto;
+    }
+
+    private void PieDeAyuda()
+    {
+        var pie = TextoAnclado(transform, "PieAyuda", "FLECHAS / STICK: ELEGIR  ·  ENTER / A: ACEPTAR",
+            new Vector2(.07f, .06f), new Vector2(640, 24), 15, EstiloUI.Gris);
+        pie.characterSpacing = 3;
+    }
+
+    /// <summary>Texto alineado a la izquierda cuyo borde izquierdo queda en el ancla dada.</summary>
+    private static TMP_Text TextoAnclado(Transform padre, string nombre, string valor, Vector2 ancla, Vector2 tamano, float puntos, Color color)
+    {
+        var texto = Texto(padre, nombre, valor, 0, 0, tamano.x, tamano.y, puntos, color);
+        var rect = texto.rectTransform;
+        rect.anchorMin = rect.anchorMax = ancla;
+        rect.pivot = new Vector2(0, .5f);
+        rect.anchoredPosition = Vector2.zero;
+        texto.alignment = TextAlignmentOptions.Left;
+        return texto;
     }
 
     private void FondoPixel()
@@ -112,24 +170,49 @@ public sealed class ControladorMenus : MonoBehaviour
     public void ConstruirPausa()
     {
         PrepararCanvas();
-        Fondo(transform, "FondoPausa", new Color(.025f, .018f, .065f, .85f));
-        var titulo = Rect(transform, "TituloPausa", new Vector2(.2f, .65f), new Vector2(.8f, .88f));
-        var letras = titulo.gameObject.AddComponent<TextoPixelGraphic>();
-        letras.Contenido = "PAUSA";
-        letras.color = new Color32(57, 216, 182, 255);
-        letras.ConSombra = true;
-        letras.raycastTarget = false;
-        var botones = Rect(transform, "BotonesPausa", new Vector2(.5f, .43f), new Vector2(.5f, .43f));
-        botones.sizeDelta = new Vector2(300, 254);
+        Fondo(transform, "FondoPausa", new Color(Tinta.r, Tinta.g, Tinta.b, .78f));
+        PanelLateral(.9f);
+        Titulo("TituloPausa", "PAUSA", new Vector2(.06f, .70f), new Vector2(.6f, .93f), 130);
+        var botones = Rect(transform, "BotonesPausa", new Vector2(.07f, .42f), new Vector2(.07f, .42f));
+        botones.pivot = new Vector2(0, .5f);
+        botones.sizeDelta = new Vector2(420, 254);
         primerBoton = BotonPixel(botones, "Continuar", 96, ContinuarPartida);
-        var ayuda = BotonPixel(botones, TextoAyudaHUD(), 32, AlternarAyudaHUD, 360);
+        var ayuda = BotonPixel(botones, TextoAyudaHUD(), 32, AlternarAyudaHUD);
         ayuda.name = "AyudaHUD";
         BotonPixel(botones, "Nuevo juego", -32, () => Cargar(EscenaJuego));
         BotonPixel(botones, "Salir", -96, Salir);
-        var pista = Texto(botones, "Atajo", "ESC PARA CONTINUAR", 0, -151, 400, 24, 15, new Color32(207, 195, 212, 255));
-        pista.alignment = TextAlignmentOptions.Center;
+        var pista = TextoAnclado(transform, "Atajo", "ESC PARA CONTINUAR", new Vector2(.07f, .06f), new Vector2(400, 24), 15, EstiloUI.Gris);
+        pista.characterSpacing = 3;
+        EstadisticasPausa();
         CrearCarga();
         if (Application.isPlaying) StartCoroutine(Seleccionar(primerBoton));
+    }
+
+    /// <summary>Resumen de la partida en curso, a la derecha del menú de pausa.</summary>
+    private void EstadisticasPausa()
+    {
+        var partida = ControladorPartidaBotellas.Instancia;
+        if (partida == null) return;
+        var bloque = Rect(transform, "Estadisticas", new Vector2(1, .5f), new Vector2(1, .5f));
+        bloque.pivot = new Vector2(1, .5f);
+        bloque.anchoredPosition = new Vector2(-70, 0);
+        bloque.sizeDelta = new Vector2(360, 250);
+        var encabezado = Texto(bloque, "Encabezado", "ESTADÍSTICAS", 0, 96, 360, 34, 24, EstiloUI.Rosa);
+        encabezado.alignment = TextAlignmentOptions.Right;
+        encabezado.characterSpacing = 4;
+        Caja(bloque, "Regla", 0, 72, 360, 4, Color.black);
+        Caja(bloque, "ReglaOro", 0, 72, 356, 2, EstiloUI.Oro);
+        Fila(bloque, "BOTELLAS", $"{partida.Recogidas:00} / {partida.Total:00}", 34, EstiloUI.Oro);
+        Fila(bloque, "PUNTOS", partida.Puntos.ToString("0000"), -18, EstiloUI.Verde);
+        Fila(bloque, "VIDA", Mathf.RoundToInt(partida.Vida * 100f) + "%", -70, EstiloUI.Rojo);
+    }
+
+    private static void Fila(Transform padre, string etiqueta, string valor, float y, Color color)
+    {
+        var nombre = Texto(padre, "Etiqueta" + etiqueta, etiqueta, 0, y, 360, 40, 22, EstiloUI.Crema);
+        nombre.alignment = TextAlignmentOptions.Left;
+        var cifra = Texto(padre, "Valor" + etiqueta, valor, 0, y, 360, 44, 34, color);
+        cifra.alignment = TextAlignmentOptions.Right;
     }
 
     private static void ContinuarPartida()
@@ -145,32 +228,39 @@ public sealed class ControladorMenus : MonoBehaviour
         var botones = GetComponentsInChildren<Button>(true);
         foreach (var boton in botones)
             if (boton.name == "AyudaHUD")
-                boton.GetComponentInChildren<TextoPixelGraphic>().Contenido = TextoAyudaHUD().ToUpperInvariant();
+                boton.GetComponentInChildren<TMP_Text>().text = TextoAyudaHUD().ToUpperInvariant();
     }
 
-    private Button BotonPixel(Transform padre, string valor, float y, UnityEngine.Events.UnityAction accion, float ancho = 300)
+    /// <summary>Opción de solo texto con franja inclinada; el realce lo anima RealceBotonMenu.</summary>
+    private Button BotonPixel(Transform padre, string valor, float y, UnityEngine.Events.UnityAction accion, float ancho = 420, bool centrado = false)
     {
-        Caja(padre, valor + "Sombra", 4, y - 5, ancho, 56, new Color32(21, 22, 43, 255));
-        var rect = Caja(padre, valor, 0, y, ancho, 56, Color.white);
+        var rect = Caja(padre, valor, 0, y, ancho, 54, new Color(0, 0, 0, 0));
         var imagen = rect.GetComponent<Image>();
         imagen.raycastTarget = true;
-        Caja(rect, "BordeSuperior", 0, 26, ancho, 4, new Color32(250, 241, 235, 255));
-        Caja(rect, "BordeInferior", 0, -26, ancho, 4, new Color32(109, 111, 129, 255));
-        var etiqueta = Rect(rect, "Etiqueta", new Vector2(.07f, .16f), new Vector2(.93f, .84f));
-        var texto = etiqueta.gameObject.AddComponent<TextoPixelGraphic>();
-        texto.Contenido = valor.ToUpperInvariant();
-        texto.MaximoPixel = 3;
-        texto.color = new Color32(28, 44, 65, 255);
+        var franja = Rect(rect, "Franja", Vector2.zero, Vector2.one);
+        franja.offsetMin = new Vector2(-18, 3);
+        franja.offsetMax = new Vector2(-6, -3);
+        var forma = franja.gameObject.AddComponent<FormaUIGraphic>();
+        forma.Inclinacion = 14;
+        forma.color = EstiloUI.Magenta;
+        forma.Degradado = !centrado;
+        forma.ColorB = new Color(EstiloUI.Magenta.r, EstiloUI.Magenta.g, EstiloUI.Magenta.b, 0);
+        forma.raycastTarget = false;
+        var etiqueta = Rect(rect, "Etiqueta", Vector2.zero, Vector2.one);
+        if (!centrado) etiqueta.offsetMin = new Vector2(8, 0);
+        var texto = etiqueta.gameObject.AddComponent<TextMeshProUGUI>();
+        EstiloUI.Aplicar(texto, EstiloUI.Fuente.Hud, .25f);
+        texto.text = valor.ToUpperInvariant();
+        texto.alignment = centrado ? TextAlignmentOptions.Center : TextAlignmentOptions.Left;
+        texto.textWrappingMode = TextWrappingModes.NoWrap;
+        texto.enableAutoSizing = true;
+        texto.fontSizeMin = 20;
+        texto.fontSizeMax = 34;
         texto.raycastTarget = false;
         var boton = rect.gameObject.AddComponent<Button>();
         boton.targetGraphic = imagen;
-        var colores = boton.colors;
-        colores.normalColor = new Color32(202, 203, 212, 255);
-        colores.highlightedColor = new Color32(163, 236, 208, 255);
-        colores.selectedColor = colores.highlightedColor;
-        colores.pressedColor = new Color32(98, 184, 165, 255);
-        colores.fadeDuration = .08f;
-        boton.colors = colores;
+        boton.transition = Selectable.Transition.None;
+        rect.gameObject.AddComponent<RealceBotonMenu>().Configurar(texto, forma, centrado ? 0f : 14f);
         boton.onClick.AddListener(() => EjecutarBoton(accion));
         return boton;
     }
@@ -230,21 +320,28 @@ public sealed class ControladorMenus : MonoBehaviour
     {
         PrepararCanvas();
         if (!victoria) FondoPixel();
-        Fondo(transform, "Oscuridad", new Color(.025f, .018f, .065f, victoria ? .55f : .84f));
+        Fondo(transform, "Oscuridad", new Color(Tinta.r, Tinta.g, Tinta.b, victoria ? .55f : .84f));
         var banda = Rect(transform, "BandaTitulo", new Vector2(0, .40f), new Vector2(1, .70f));
-        banda.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .72f);
-        Color color = victoria ? new Color32(255, 183, 36, 255) : (Color)new Color32(166, 42, 33, 255);
-        var titulo = Texto(banda, "TituloResultado", victoria ? "mission passed!" : "Has muerto", 0, victoria ? 34 : 0, 1100, 100, victoria ? 78 : 82, color);
+        banda.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .74f);
+        Color color = victoria ? EstiloUI.Oro : EstiloUI.Rojo;
+        // Filos de color que enmarcan la banda del título.
+        foreach (float borde in new[] { 0f, 1f })
+        {
+            var filo = Rect(banda, "Filo", new Vector2(0, borde), new Vector2(1, borde));
+            filo.sizeDelta = new Vector2(0, 5);
+            var imagenFilo = filo.gameObject.AddComponent<Image>();
+            imagenFilo.color = color;
+            imagenFilo.raycastTarget = false;
+        }
+        var titulo = Texto(banda, "TituloResultado", victoria ? "mission passed!" : "Has muerto", 0, victoria ? 34 : 0, 1100, 110, victoria ? 92 : 104, color);
         titulo.alignment = TextAlignmentOptions.Center;
-        titulo.characterSpacing = victoria ? -3 : 9;
-        titulo.fontStyle = victoria ? FontStyles.Bold : FontStyles.Normal;
+        titulo.characterSpacing = victoria ? 0 : 6;
         AjustarAnchoTitulo(titulo);
+        EstiloSanAndreas(titulo);
         if (victoria)
         {
-            EstiloSanAndreas(titulo);
-            var respeto = Texto(banda, "RespetoVictoria", "RESPECT + 99", 0, -47, 1100, 72, 52, Color.white);
+            var respeto = Texto(banda, "RespetoVictoria", "RESPECT + 99", 0, -52, 1100, 72, 56, Color.white);
             respeto.alignment = TextAlignmentOptions.Center;
-            respeto.fontStyle = FontStyles.Bold;
             AjustarAnchoTitulo(respeto);
             EstiloSanAndreas(respeto);
         }
@@ -252,11 +349,12 @@ public sealed class ControladorMenus : MonoBehaviour
         var rectOpciones = Rect(transform, "OpcionesResultado", new Vector2(.5f, .24f), new Vector2(.5f, .24f));
         rectOpciones.sizeDelta = new Vector2(600, 290);
         opciones = rectOpciones.gameObject.AddComponent<CanvasGroup>();
-        var detalle = Texto(rectOpciones, "Resumen", resumen, 0, 58, 600, 96, 24, new Color32(207, 195, 212, 255));
+        var detalle = Texto(rectOpciones, "Resumen", resumen, 0, 76, 600, 132, 24, EstiloUI.Crema);
         detalle.alignment = TextAlignmentOptions.Center;
         detalle.textWrappingMode = TextWrappingModes.Normal;
-        primerBoton = BotonPixel(rectOpciones, "Volver a jugar", -26, () => Cargar(EscenaJuego), 440);
-        BotonPixel(rectOpciones, "Ir al menú principal", -93, () => Cargar(EscenaMenu), 440);
+        detalle.lineSpacing = -12;
+        primerBoton = BotonPixel(rectOpciones, "Volver a jugar", -26, () => Cargar(EscenaJuego), 440, true);
+        BotonPixel(rectOpciones, "Ir al menú principal", -93, () => Cargar(EscenaMenu), 440, true);
         CrearCarga();
         if (animar && Application.isPlaying)
         {
@@ -295,18 +393,11 @@ public sealed class ControladorMenus : MonoBehaviour
         if (fuente != null) fuente.Stop();
     }
 
-    private void EstiloSanAndreas(TMP_Text texto)
+    /// <summary>Rótulo de cierre de misión: fuente de títulos con contorno grueso y sombra.</summary>
+    private static void EstiloSanAndreas(TMP_Text texto)
     {
-        var material = new Material(texto.fontSharedMaterial);
-        texto.fontMaterial = material;
-        texto.outlineColor = Color.black;
-        texto.outlineWidth = .3f;
-        materialesResultado.Add(material);
-    }
-    private readonly System.Collections.Generic.List<Material> materialesResultado = new System.Collections.Generic.List<Material>();
-    private void OnDestroy()
-    {
-        foreach (var material in materialesResultado) Destroy(material);
+        texto.fontStyle = FontStyles.Normal;
+        EstiloUI.Aplicar(texto, EstiloUI.Fuente.Titulo, .3f);
     }
 
     private void PrepararCanvas()
@@ -362,12 +453,50 @@ public sealed class ControladorMenus : MonoBehaviour
     private void CrearCarga()
     {
         var rect = Fondo(transform, "PantallaCarga", Tinta);
-        estadoCarga = Texto(rect, "EstadoCarga", "CARGANDO LA CIUDAD…", 0, 15, 800, 54, 36, Color.white);
-        estadoCarga.alignment = TextAlignmentOptions.Center;
-        Caja(rect, "Carril", 0, -50, 500, 4, new Color32(51, 61, 49, 255));
-        var barra = Caja(rect, "Progreso", -250, -50, 500, 4, Verde);
+        var marca = Rect(rect, "Marca", new Vector2(0, 1), new Vector2(0, 1));
+        marca.pivot = new Vector2(0, 1);
+        marca.anchoredPosition = new Vector2(56, -36);
+        marca.sizeDelta = new Vector2(700, 70);
+        marca.localRotation = Quaternion.Euler(0, 0, 2f);
+        var textoMarca = marca.gameObject.AddComponent<TextMeshProUGUI>();
+        EstiloUI.Aplicar(textoMarca, EstiloUI.Fuente.Titulo, .3f);
+        textoMarca.text = $"SUPER CURAO <color={EstiloUI.HexRosa}>MAN</color>";
+        textoMarca.fontSize = 54;
+        textoMarca.color = EstiloUI.Oro;
+        textoMarca.alignment = TextAlignmentOptions.Left;
+        textoMarca.raycastTarget = false;
+
+        var consejo = Texto(rect, "Consejo", $"<color={EstiloUI.HexOro}>CONSEJO</color>\n" + Consejos[Random.Range(0, Consejos.Length)],
+            0, 10, 860, 150, 26, EstiloUI.Crema);
+        EstiloUI.Aplicar(consejo, EstiloUI.Fuente.Cuerpo, .2f);
+        consejo.fontStyle = FontStyles.Bold;
+        consejo.alignment = TextAlignmentOptions.Center;
+        consejo.textWrappingMode = TextWrappingModes.Normal;
+
+        estadoCarga = Texto(rect, "EstadoCarga", "CARGANDO…", 0, 0, 800, 56, 40, Color.white);
+        var rectEstado = estadoCarga.rectTransform;
+        rectEstado.anchorMin = rectEstado.anchorMax = rectEstado.pivot = Vector2.zero;
+        rectEstado.anchoredPosition = new Vector2(56, 74);
+        estadoCarga.alignment = TextAlignmentOptions.Left;
+
+        var carril = Rect(rect, "Carril", Vector2.zero, new Vector2(1, 0));
+        carril.offsetMin = new Vector2(56, 48);
+        carril.offsetMax = new Vector2(-56, 66);
+        var fondoCarril = carril.gameObject.AddComponent<Image>();
+        fondoCarril.color = Color.black;
+        fondoCarril.raycastTarget = false;
+        var vacio = Rect(carril, "Vacio", Vector2.zero, Vector2.one);
+        vacio.offsetMin = Vector2.one * 3f;
+        vacio.offsetMax = -Vector2.one * 3f;
+        var fondoVacio = vacio.gameObject.AddComponent<Image>();
+        fondoVacio.color = Color.Lerp(EstiloUI.Oro, Color.black, .72f);
+        fondoVacio.raycastTarget = false;
+        var barra = Rect(vacio, "Progreso", Vector2.zero, Vector2.one);
         barra.pivot = new Vector2(0, .5f);
-        progresoCarga = barra.GetComponent<Image>();
+        barra.localScale = new Vector3(0, 1, 1);
+        progresoCarga = barra.gameObject.AddComponent<Image>();
+        progresoCarga.color = EstiloUI.Oro;
+        progresoCarga.raycastTarget = false;
         carga = rect.gameObject;
         carga.SetActive(false);
     }
@@ -448,13 +577,13 @@ public sealed class ControladorMenus : MonoBehaviour
         rect.anchoredPosition = new Vector2(x, y);
         rect.sizeDelta = new Vector2(ancho, alto);
         var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-        text.font = TMP_Settings.defaultFontAsset;
+        EstiloUI.Aplicar(text, EstiloUI.Fuente.Hud, .22f);
         text.text = valor;
         text.fontSize = tamano;
         text.color = color;
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.raycastTarget = false;
-        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.alignment = TextAlignmentOptions.Left;
         return text;
     }
 
