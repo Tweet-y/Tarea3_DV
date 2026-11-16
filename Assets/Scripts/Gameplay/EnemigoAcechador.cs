@@ -1,10 +1,13 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
 /// Persigue al jugador con NavMeshAgent, como MovimientoSimpleNPC del curso.
 /// Nemesis usa el agente Humanoid; el titán usa su propio tipo de agente ("Titan").
+/// Con modoHorda (zombies) el enemigo deambula hasta ver u oír al jugador, avisa a los que tiene cerca,
+/// lo rodea en vez de ir en fila, corre y remata con una embestida.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Animator))]
@@ -27,10 +30,32 @@ public class EnemigoAcechador : MonoBehaviour
     public GolpeMelee golpe;
     public AudioClip sonidoAtaque;
 
+    [Header("Horda (zombies)")]
+    public bool modoHorda;
+    [Tooltip("A esta distancia lo detecta aunque esté de espaldas o detrás de un muro.")]
+    public float radioOido = 7f;
+    public float anguloVision = 140f;
+    public float radioVagar = 9f;
+    public float velocidadVagar = 1.1f;
+    [Tooltip("Si el jugador pasa varios segundos más lejos que esto, vuelve a deambular.")]
+    public float distanciaOlvido = 60f;
+    [Tooltip("Velocidad del salto final al atacar.")]
+    public float embestida = 5.5f;
+
+    /// <summary>Enemigos activos, para avisarse entre ellos y reaccionar al ruido.</summary>
+    public static readonly List<EnemigoAcechador> Activos = new List<EnemigoAcechador>();
+
     public bool Persiguiendo { get; private set; }
     public bool Atacando { get; private set; }
+    public bool Alertado => detectado;
     bool detectado;
     float proximoAtaque, aturdidoHasta;
+    // Horda
+    Vector3 hogar, posicionObjetivoPrevia, velocidadObjetivo;
+    float flanco, proximoVagar, lejosDesde = -1f, medidaPrevia;
+    bool embistiendo;
+    static float proximoGrunido;
+    static int mascaraVision = -1;
     Coroutine ataque;
 
     Animator animator;
@@ -49,18 +74,222 @@ public class EnemigoAcechador : MonoBehaviour
         escalaLocomocion = Mathf.Max(1f, Altura() / 1.8f);
         if (agente != null)
             agente.enabled = false;
+        flanco = Random.Range(-1f, 1f);
+        hogar = transform.position;
+        if (modoHorda) AjustarAgenteHorda();
     }
 
     void OnEnable()
     {
+        if (!Activos.Contains(this)) Activos.Add(this);
         StartCoroutine(Perseguir());
     }
 
     void OnDisable()
     {
+        Activos.Remove(this);
         StopAllCoroutines();
         Persiguiendo = false;
+        Atacando = false;
+        embistiendo = false;
+        if (golpe != null) golpe.FinGolpe();
     }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void Reiniciar()
+    {
+        Activos.Clear();
+        proximoGrunido = 0f;
+    }
+
+    // ---------------------------------------------------------------- Horda
+
+    /// <summary>Activa el comportamiento de horda con la velocidad de carrera de este zombie.</summary>
+    public void ConfigurarHorda(float correr, float vision, float oido)
+    {
+        modoHorda = true;
+        velocidadCorrer = correr;
+        radioDeteccion = vision;
+        radioOido = oido;
+        hogar = transform.position;
+        AjustarAgenteHorda();
+    }
+
+    void AjustarAgenteHorda()
+    {
+        if (agente == null) return;
+        agente.acceleration = 22f;
+        agente.angularSpeed = 540f;
+        agente.autoBraking = false;
+        agente.stoppingDistance = .9f;
+        // Prioridades distintas: se abren paso entre ellos en vez de trabarse en fila.
+        agente.avoidancePriority = Random.Range(30, 70);
+    }
+
+    /// <summary>Un ruido fuerte (disparos) despierta a los zombies que estén dentro del radio.</summary>
+    public static void Ruido(Vector3 posicion, float radio)
+    {
+        float r2 = radio * radio;
+        for (int i = Activos.Count - 1; i >= 0; i--)
+        {
+            var e = Activos[i];
+            if (e == null || !e.modoHorda || e.detectado) continue;
+            if ((e.transform.position - posicion).sqrMagnitude <= r2) e.Alertar(false);
+        }
+    }
+
+    /// <summary>Pasa a perseguir. Con contagiar, también despierta a los zombies cercanos.</summary>
+    public void Alertar(bool contagiar)
+    {
+        bool nuevo = !detectado;
+        detectado = true;
+        lejosDesde = -1f;
+        if (!nuevo || !modoHorda) return;
+        proximoVagar = 0f;
+        if (Time.time >= proximoGrunido && BancoSonidos.Actual != null && BancoSonidos.Actual.grito != null)
+        {
+            proximoGrunido = Time.time + 2.5f;
+            Sonido.Reproducir(BancoSonidos.Actual.grito, transform.position, .3f, "Efectos", Random.Range(1.25f, 1.6f));
+        }
+        if (!contagiar) return;
+        for (int i = Activos.Count - 1; i >= 0; i--)
+        {
+            var e = Activos[i];
+            if (e == null || e == this || !e.modoHorda || e.detectado) continue;
+            if ((e.transform.position - transform.position).sqrMagnitude <= 12f * 12f) e.Alertar(false);
+        }
+    }
+
+    bool Percibe()
+    {
+        float d = DistanciaPlana(transform.position, objetivo.position);
+        if (radioDeteccion > 0f && d > radioDeteccion) return false;
+        if (d <= radioOido) return true;
+        Vector3 hacia = objetivo.position - transform.position;
+        hacia.y = 0f;
+        if (Vector3.Angle(transform.forward, hacia) > anguloVision * .5f) return false;
+        if (mascaraVision < 0) mascaraVision = LayerMask.GetMask("Default");
+        Vector3 ojos = transform.position + Vector3.up * 1.6f;
+        Vector3 pecho = objetivo.position + Vector3.up * 1.2f;
+        return !Physics.Linecast(ojos, pecho, out var tapa, mascaraVision, QueryTriggerInteraction.Ignore)
+            || tapa.transform.IsChildOf(objetivo) || tapa.transform.IsChildOf(transform);
+    }
+
+    /// <summary>Decisiones lentas (cuatro veces por segundo): percibir, deambular o fijar el destino.</summary>
+    void PensarHorda()
+    {
+        float ahora = Time.time;
+        float dt = Mathf.Max(.05f, ahora - medidaPrevia);
+        velocidadObjetivo = medidaPrevia > 0f ? (objetivo.position - posicionObjetivoPrevia) / dt : Vector3.zero;
+        posicionObjetivoPrevia = objetivo.position;
+        medidaPrevia = ahora;
+        bool listo = agente != null && agente.enabled && agente.isOnNavMesh;
+
+        if (!detectado)
+        {
+            if (Percibe()) { Alertar(true); return; }
+            if (!listo || ahora < proximoVagar) return;
+            proximoVagar = ahora + Random.Range(3f, 8f);
+            Vector2 r = Random.insideUnitCircle * radioVagar;
+            if (NavMesh.SamplePosition(hogar + new Vector3(r.x, 0f, r.y), out var paseo, 3f, Filtro()))
+                agente.SetDestination(paseo.position);
+            return;
+        }
+
+        float d = DistanciaPlana(transform.position, objetivo.position);
+        if (d > distanciaOlvido)
+        {
+            if (lejosDesde < 0f) lejosDesde = ahora;
+            else if (ahora - lejosDesde > 8f)
+            {
+                detectado = false;
+                lejosDesde = -1f;
+                hogar = transform.position;
+                return;
+            }
+        }
+        else lejosDesde = -1f;
+
+        if (!listo || Atacando || ahora < aturdidoHasta) return;
+        Vector3 meta = objetivo.position;
+        if (d > 3.5f)
+        {
+            // Anticipar hacia dónde corre el jugador y abrirse a un costado: lo rodean en vez de hacer fila.
+            float velocidad = Mathf.Max(1f, velocidadCorrer);
+            meta += Vector3.ClampMagnitude(GeografiaIsla.Plano(velocidadObjetivo), 6f) * Mathf.Clamp(d / velocidad, 0f, 1.2f) * .6f;
+            Vector3 lateral = Vector3.Cross(Vector3.up, GeografiaIsla.Plano(objetivo.position - transform.position).normalized);
+            meta += lateral * flanco * Mathf.Clamp(d * .35f, 0f, 5f);
+        }
+        if (NavMesh.SamplePosition(meta, out var destino, 6f, Filtro())) agente.SetDestination(destino.position);
+        else if (NavMesh.SamplePosition(objetivo.position, out destino, alcanceDestino, Filtro())) agente.SetDestination(destino.position);
+    }
+
+    /// <summary>Movimiento cuadro a cuadro del zombie: deambular, correr tras el jugador y embestir.</summary>
+    void ActuarHorda(float distancia)
+    {
+        bool listo = agente != null && agente.enabled && agente.isOnNavMesh;
+        if (!detectado)
+        {
+            if (listo)
+            {
+                agente.isStopped = false;
+                agente.speed = velocidadVagar;
+                Animar(agente.velocity.magnitude);
+            }
+            else Animar(0f);
+            return;
+        }
+        if (Atacando)
+        {
+            if (listo) agente.isStopped = true;
+            Encarar(420f);
+            // Embestida: se abalanza el último tramo en vez de quedarse plantado.
+            if (embistiendo && distancia > .95f)
+            {
+                Vector3 paso = transform.forward * embestida * Time.deltaTime;
+                if (listo) agente.Move(paso);
+                else transform.position += paso;
+            }
+            Animar(0f);
+            return;
+        }
+        if (rangoAtaque > 0f && distancia <= rangoAtaque)
+        {
+            Encarar(420f);
+            if (Time.time >= proximoAtaque)
+            {
+                ataque = StartCoroutine(Atacar());
+                return;
+            }
+            if (distancia <= rangoAtaque * .65f)
+            {
+                if (listo) agente.isStopped = true;
+                Animar(0f);
+                return;
+            }
+        }
+        if (listo)
+        {
+            agente.isStopped = false;
+            agente.speed = velocidadCorrer;
+            Animar(agente.velocity.magnitude);
+            return;
+        }
+        // Sin NavMesh: en línea recta.
+        Encarar(240f);
+        transform.position += transform.forward * velocidadCorrer * Time.deltaTime;
+        Animar(velocidadCorrer);
+    }
+
+    void Encarar(float gradosPorSegundo)
+    {
+        Vector3 cara = objetivo.position - transform.position;
+        cara.y = 0f;
+        if (cara.sqrMagnitude > 0.04f)
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(cara), gradosPorSegundo * Time.deltaTime);
+    }
+
+    // ---------------------------------------------------------------- Persecución
 
     IEnumerator Perseguir()
     {
@@ -85,10 +314,19 @@ public class EnemigoAcechador : MonoBehaviour
                 agente.enabled = false;
             }
         }
+        hogar = transform.position;
 
         var espera = new WaitForSeconds(0.25f);
+        // Desfase para que toda la horda no piense en el mismo cuadro.
+        if (modoHorda) yield return new WaitForSeconds(Random.Range(0f, .25f));
         while (true)
         {
+            if (modoHorda)
+            {
+                PensarHorda();
+                yield return espera;
+                continue;
+            }
             // El destino se lleva al NavMesh de este tipo de agente: el titán va al punto de avenida más cercano.
             bool quieto = (radioDeteccion > 0f && !detectado) || Atacando;
             if (!quieto && usarNavMesh && agente != null && agente.isOnNavMesh
@@ -110,6 +348,11 @@ public class EnemigoAcechador : MonoBehaviour
             return;
         }
         float distancia = DistanciaPlana(transform.position, objetivo.position);
+        if (modoHorda)
+        {
+            ActuarHorda(distancia);
+            return;
+        }
         if (radioDeteccion > 0f && !detectado)
         {
             if (distancia > radioDeteccion)
@@ -154,13 +397,17 @@ public class EnemigoAcechador : MonoBehaviour
     /// <summary>Interrumpe el ataque y frena al enemigo, como al encajar un impacto.</summary>
     public void Aturdir(float segundos)
     {
+        // Una horda no se detiene con cada bala: el tambaleo dura menos.
+        if (modoHorda) segundos *= .6f;
         aturdidoHasta = Mathf.Max(aturdidoHasta, Time.time + segundos);
         if (ataque != null) StopCoroutine(ataque);
         ataque = null;
         if (golpe != null) golpe.FinGolpe();
         Atacando = false;
+        embistiendo = false;
         proximoAtaque = Mathf.Max(proximoAtaque, aturdidoHasta);
-        detectado = true;
+        if (modoHorda) Alertar(true);
+        else detectado = true;
     }
 
     IEnumerator Atacar()
@@ -168,11 +415,14 @@ public class EnemigoAcechador : MonoBehaviour
         Atacando = true;
         if (animator != null && TieneParametro("Atacar")) animator.SetTrigger("Atacar");
         Sonido.Reproducir(sonidoAtaque != null ? sonidoAtaque : BancoSonidos.Actual != null ? BancoSonidos.Actual.swoosh : null, transform.position, .7f, "Efectos");
+        embistiendo = modoHorda;
         yield return new WaitForSeconds(.25f);
         if (golpe != null) golpe.InicioGolpe();
         yield return new WaitForSeconds(.22f);
         if (golpe != null) golpe.FinGolpe();
-        proximoAtaque = Time.time + cadenciaAtaque;
+        embistiendo = false;
+        proximoAtaque = Time.time + cadenciaAtaque * (modoHorda ? Random.Range(.85f, 1.15f) : 1f);
+        if (modoHorda) yield return new WaitForSeconds(.12f);
         Atacando = false;
     }
 
