@@ -64,7 +64,7 @@ public sealed partial class PeleaJefeLancha
         agujaSkill.anchoredPosition = Vector2.zero;
 
         textoSkill = Texto(rt, "Tecla", new Vector2(.5f, .5f), new Vector2(0, 8), new Vector2(110, 30), 20, Color.white);
-        contadorSkill = Texto(rt, "Contador", new Vector2(.5f, .5f), new Vector2(0, -18), new Vector2(110, 22), 14, new Color32(255, 214, 102, 255));
+        contadorSkill = Texto(rt, "Contador", new Vector2(.5f, .5f), new Vector2(0, -18), new Vector2(110, 22), 15, EstiloUI.Oro);
         panelSkill.SetActive(false);
 
         audioUI = gameObject.AddComponent<AudioSource>();

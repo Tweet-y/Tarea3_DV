@@ -76,9 +76,9 @@ public sealed partial class PeleaJefeLancha
 
     void CrearHUDExtra(Transform raiz)
     {
-        textoNemesis = Texto(raiz, "NombreNemesis", new Vector2(.5f, 1f), new Vector2(0, -22), new Vector2(640, 30), 24, new Color32(232, 180, 68, 255));
+        textoNemesis = Texto(raiz, "NombreNemesis", new Vector2(.5f, 1f), new Vector2(0, -22), new Vector2(640, 32), 26, EstiloUI.Oro);
         textoNemesis.text = "NEMESIS";
-        (rellenoNemesis, rastroNemesisRt, _) = BarraVida(raiz, new Vector2(.5f, 1f), new Vector2(0, -50), new Vector2(640, 22), new Color(.7f, .1f, .08f));
+        (rellenoNemesis, rastroNemesisRt, _) = BarraVida(raiz, new Vector2(.5f, 1f), new Vector2(0, -50), new Vector2(640, 22), EstiloUI.Rojo);
         // Marcas de fase al 66 % y 33 %.
         foreach (float f in new[] { .33f, .66f })
         {
@@ -91,16 +91,16 @@ public sealed partial class PeleaJefeLancha
         (rellenoLancha, rastroLanchaRt, img) = BarraVida(raiz, new Vector2(0f, 0f), new Vector2(200, 46), new Vector2(320, 20), new Color(.2f, .8f, .4f));
         rellenoLanchaImg = img;
 
-        panelQte = Panel(raiz, "QTE", new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, -130), new Vector2(560, 150), new Color(0f, 0f, 0f, .6f)).gameObject;
-        var caja = Panel(panelQte.transform, "Tecla", new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0, -48), new Vector2(150, 70), new Color(1f, .85f, .3f, .95f));
-        teclaQte = Texto(caja.transform, "Letra", new Vector2(.5f, .5f), Vector2.zero, new Vector2(150, 70), 40, new Color32(25, 25, 25, 255));
-        teclaQte.outlineWidth = 0f;
+        panelQte = Panel(raiz, "QTE", new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, -130), new Vector2(560, 150), new Color(.05f, .03f, .1f, .8f)).gameObject;
+        var caja = Panel(panelQte.transform, "Tecla", new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0, -48), new Vector2(150, 70), EstiloUI.Oro);
+        teclaQte = Texto(caja.transform, "Letra", new Vector2(.5f, .5f), Vector2.zero, new Vector2(150, 70), 44, new Color32(25, 18, 38, 255));
+        EstiloUI.Aplicar(teclaQte, EstiloUI.Fuente.Hud, 0f, false);
         textoQte = Texto(panelQte.transform, "Texto", new Vector2(.5f, 0f), new Vector2(0, 42), new Vector2(530, 34), 24, Color.white);
         textoQte.enableAutoSizing = true;
         textoQte.fontSizeMin = 14;
         textoQte.fontSizeMax = 24;
         Panel(panelQte.transform, "BarraFondo", new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(0, 14), new Vector2(504, 14), new Color(0f, 0f, 0f, .7f));
-        barraQteImg = Panel(panelQte.transform, "Barra", new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(-250, 14), new Vector2(500, 10), new Color(1f, .85f, .3f));
+        barraQteImg = Panel(panelQte.transform, "Barra", new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(-250, 14), new Vector2(500, 10), EstiloUI.Oro);
         barraQte = barraQteImg.rectTransform;
         barraQte.pivot = new Vector2(0f, .5f);
         panelQte.SetActive(false);
@@ -109,7 +109,8 @@ public sealed partial class PeleaJefeLancha
 
     static (RectTransform relleno, RectTransform rastro, Image imagen) BarraVida(Transform raiz, Vector2 ancla, Vector2 pos, Vector2 tam, Color color)
     {
-        var fondo = Panel(raiz, "BarraFondo", ancla, ancla, pos, tam + new Vector2(6, 6), new Color(0f, 0f, 0f, .7f));
+        var fondo = Panel(raiz, "BarraFondo", ancla, ancla, pos, tam + new Vector2(6, 6), Color.black);
+        Panel(fondo.transform, "Vacio", new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, tam, Color.Lerp(color, Color.black, .72f));
         RectTransform Hijo(string nombre, Color c, out Image imagen)
         {
             imagen = Panel(fondo.transform, nombre, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(3, 0), tam, c);
@@ -649,21 +650,11 @@ public sealed partial class PeleaJefeLancha
     void DisparoAutomatico(Vector3 objetivo)
     {
         Vector3 boca = pivote.TransformPoint(bocaLocal);
-        var lr = trazas[traza];
-        traza = (traza + 1) % trazas.Length;
-        if (lr != null)
-        {
-            lr.SetPosition(0, boca);
-            lr.SetPosition(1, objetivo + Random.insideUnitSphere * 1.5f);
-            lr.enabled = true;
-        }
-        trazaHasta = Time.time + .05f;
-        fogonazoHasta = Time.time + .04f;
+        EfectosDisparo(boca, objetivo + Random.insideUnitSphere * 1.5f);
         retroceso = Mathf.Min(retroceso + .4f, 2.2f);
         sacudida = Mathf.Max(sacudida, .25f);
         EfectosPelea.Rafaga(objetivo + Random.insideUnitSphere * 1.5f, Random.onUnitSphere, new Color(1f, .7f, .3f), new Color(1f, .4f, .1f), 8,
             new Vector2(3f, 8f), new Vector2(.2f, .5f), new Vector2(.2f, .5f), 1f, 180f, 1.5f);
-        if (clipDisparo != null) audioArma.PlayOneShot(clipDisparo, .7f);
     }
 
     // ---------------------------------------------------------------- Muerte
