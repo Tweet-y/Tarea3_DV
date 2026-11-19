@@ -44,6 +44,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
     private LineRenderer traza;
     private Material materialTraza;
     private Light luz;
+    private EfectosRifle efectos;
     private float proximoDisparo, efectoHasta, proximaBusqueda;
     private bool estabaDisponible;
     // Tras pausa o recarga exigir soltar el gatillo para evitar un disparo involuntario.
@@ -144,6 +145,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
             traza.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             traza.enabled = false;
         }
+        if (efectos == null) efectos = EfectosRifle.Crear(transform);
         gatilloBloqueado = true;
         audioArma.PlayOneShot(click, .5f);
         // Recoger el rifle lo selecciona; antes el bate lo dejaba enfundado e imposible de usar.
@@ -348,10 +350,13 @@ public sealed class ControladorArmaFuego : MonoBehaviour
                 float danio = Definicion.danio * multiplicador * (enemigo.EsCabeza(hit.point) ? Definicion.multiplicadorCabeza : 1f);
                 if (enemigo.RecibirDanio(danio, hit.point, (hit.point - boca).normalized)) ImpactoHasta = Time.time + .15f;
             }
+            // Los enemigos sangran (ReaccionImpacto); el resto recibe chispas, polvo y el agujero.
+            if (efectos != null && (enemigo == null || enemigo.GetComponent<EnemigoAcechador>() == null)) efectos.Impacto(hit);
         }
-        traza.SetPosition(0, boca);
-        traza.SetPosition(1, fin);
-        traza.enabled = true;
+        // La trazadora viaja hasta el blanco en vez de dibujarse de golpe.
+        if (efectos != null) efectos.Disparo(boca, fin - boca, fin, Apuntando);
+        // El disparo se oye lejos: los zombies cercanos vienen a ver.
+        EnemigoAcechador.Ruido(transform.position, 40f);
         if (fogonazo != null) fogonazo.gameObject.SetActive(true);
         if (luz != null) luz.enabled = true;
         efectoHasta = Time.time + .045f;

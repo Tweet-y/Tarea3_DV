@@ -18,7 +18,6 @@ public sealed class ReaccionImpacto : MonoBehaviour
     Transform espina, pecho, cabeza;
     Renderer[] renderers;
     MaterialPropertyBlock bloque;
-    static Material materialParticula;
 
     Vector3 eje = Vector3.right;
     float giroLateral;
@@ -90,7 +89,7 @@ public sealed class ReaccionImpacto : MonoBehaviour
             empujeHasta = Time.time + .18f;
         }
         destelloHasta = Time.time + .09f;
-        Salpicar(punto, direccion, cabezazo, murio);
+        EfectosPelea.Sangre(punto, direccion, cabezazo, murio, pesado ? 4f : 1f);
     }
 
     void Update()
@@ -138,44 +137,5 @@ public sealed class ReaccionImpacto : MonoBehaviour
     {
         v += (-Rigidez * x - Amortiguacion * v) * dt;
         x = Mathf.Clamp(x + v * dt, -50f, 50f);
-    }
-
-    static void Salpicar(Vector3 punto, Vector3 direccion, bool cabezazo, bool murio)
-    {
-        if (materialParticula == null)
-        {
-            var shader = Shader.Find("Sprites/Default");
-            if (shader == null) return;
-            materialParticula = new Material(shader) { name = "SangreImpacto" };
-        }
-        var go = new GameObject("SangreImpacto");
-        go.transform.position = punto;
-        go.transform.rotation = Quaternion.LookRotation(direccion);
-        var ps = go.AddComponent<ParticleSystem>();
-        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        var main = ps.main;
-        main.duration = .2f;
-        main.loop = false;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(.35f, .8f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, cabezazo ? 5f : 3.4f);
-        main.startSize = new ParticleSystem.MinMaxCurve(.025f, .075f);
-        main.startColor = new ParticleSystem.MinMaxGradient(new Color(.55f, .02f, .02f), new Color(.8f, .05f, .04f));
-        main.gravityModifier = 1.6f;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        var emision = ps.emission;
-        emision.rateOverTime = 0f;
-        emision.SetBurst(0, new ParticleSystem.Burst(0f, (short)(murio ? 34 : cabezazo ? 26 : 14)));
-        var forma = ps.shape;
-        forma.shapeType = ParticleSystemShapeType.Cone;
-        forma.angle = 28f;
-        forma.radius = .02f;
-        var tamano = ps.sizeOverLifetime;
-        tamano.enabled = true;
-        tamano.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, .2f));
-        var render = go.GetComponent<ParticleSystemRenderer>();
-        render.sharedMaterial = materialParticula;
-        render.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        ps.Play();
-        Destroy(go, 1.5f);
     }
 }

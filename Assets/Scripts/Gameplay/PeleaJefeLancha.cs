@@ -12,7 +12,7 @@ using UnityEngine.UI;
 /// Final del juego: al subir a la lancha de CJ en muelle_final aparece Nemesis gigante en la orilla.
 /// CJ conduce la lancha en circuito mientras el jugador usa la .50 montada en primera persona;
 /// Nemesis lanza rocas que hay que reventar en el aire. Al morir, CJ y el protagonista se van
-/// con la lancha llena de botellas hacia el horizonte. Todo se construye en tiempo de ejecucion.
+/// con el cooler de cervezas a bordo hacia el horizonte. Todo se construye en tiempo de ejecucion.
 /// </summary>
 [DefaultExecutionOrder(-200)]
 public sealed partial class PeleaJefeLancha : MonoBehaviour
@@ -362,6 +362,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
     {
         foreach (var e in FindObjectsByType<EnemigoAcechador>(FindObjectsSortMode.None))
             if (nemesis == null || e.gameObject != nemesis.gameObject) e.gameObject.SetActive(false);
+        DirectorZombies.Detener();
     }
 
     void ConstruirTorreta()
@@ -796,8 +797,8 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
     {
         yield return MuerteNemesis();
 
-        // La lancha se llena con las botellas y aparece el protagonista junto a CJ.
-        LlenarBote(partida.Total > 0 ? partida.Total : 30);
+        // Las cervezas van en un cooler sobre la cubierta y aparece el protagonista junto a CJ.
+        PonerCooler();
         if (arma != null) pivote.rotation = torreta.rotation;
         Vector3 junto = cj != null ? cj.position + lancha.right * .9f - lancha.forward * .2f : torreta.position - Vector3.up * 1.25f;
         jugador.transform.SetPositionAndRotation(junto, lancha.rotation);
@@ -817,7 +818,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         float velocidad = 0f;
         float reloj = 0f;
 
-        // Plano lateral: la carga de botellas, CJ y el protagonista.
+        // Plano lateral: el cooler, CJ y el protagonista.
         System.Func<(Vector3, Vector3)> lateral = () =>
         {
             Vector3 personajes = cj != null ? (cj.position + jugador.transform.position) * .5f : lancha.position;
@@ -832,6 +833,12 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             reloj += Time.deltaTime;
             Navegar(ref velocidad, reloj, giroInicial, giroFinal, salida, 6f);
             var (pos, foco) = lateral();
+            if (cooler != null && reloj < 2.4f)
+            {
+                // Primero un plano corto del cooler lleno, con CJ y el protagonista de fondo.
+                foco = cooler.position + Vector3.up * .45f + lancha.forward * .35f;
+                pos = cooler.position - lancha.forward * 1.35f + lancha.right * .8f + Vector3.up * 1.3f;
+            }
             camara.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(foco - pos));
             camara.fieldOfView = 50f;
             yield return null;
@@ -995,6 +1002,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             if (roca != null)
             {
                 golpeHasta = Time.time + .12f;
+                EfectosPelea.ImpactoBala(hit.point, hit.normal, 2.2f, false);
                 if (roca.Recibir(1f)) RocaDestruida(roca, true);
             }
             else if (vida != null && !vida.Muerto)
@@ -1005,8 +1013,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
                 golpeHasta = Time.time + (cabeza ? .2f : .12f);
             }
             else if (hit.point.y <= GeografiaIsla.NivelAgua + .3f) EfectosPelea.Salpicadura(hit.point, .35f);
-            else EfectosPelea.Rafaga(hit.point, hit.normal, new Color(.5f, .45f, .38f), new Color(.7f, .65f, .55f), 10,
-                new Vector2(2f, 5f), new Vector2(.1f, .3f), new Vector2(.3f, .7f), 1.2f, 40f, 2f);
+            else EfectosPelea.ImpactoBala(hit.point, hit.normal, 3f, false);
         }
         else if (dir.y < -.001f)
         {

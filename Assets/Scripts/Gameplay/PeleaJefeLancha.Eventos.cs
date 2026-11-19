@@ -773,50 +773,114 @@ public sealed partial class PeleaJefeLancha
         nemesis.gameObject.SetActive(false);
     }
 
-    // ---------------------------------------------------------------- Botellas del final
+    // ---------------------------------------------------------------- Cooler del final
 
-    /// <summary>Botellas de pie en la popa, detras de CJ y el protagonista, a la altura de la cubierta.</summary>
-    void LlenarBote(int cantidad)
+    Transform cooler;
+
+    /// <summary>
+    /// Las cervezas viajan en un cooler sobre la cubierta, junto a CJ: tapa abierta, hielo y unos
+    /// cuellos de botella asomando. Antes se repartían sueltas por la popa y quedaban fuera del casco.
+    /// </summary>
+    void PonerCooler()
     {
-        var carga = new GameObject("CargaBotellas").transform;
-        carga.SetParent(lancha, false);
-        Bounds b = GeografiaIsla.Limites(lancha, cj, jugador.transform, torreta, carga);
-        Vector3 centro = lancha.InverseTransformPoint(b.center);
-        float escala = Mathf.Max(.001f, lancha.lossyScale.x);
-        float ancho = Vector3.Scale(b.size, Abs(lancha.right)).magnitude / escala;
-        float largo = Vector3.Scale(b.size, Abs(lancha.forward)).magnitude / escala;
-        float cubiertaMundo = cj != null ? cj.position.y : torreta.position.y - 1.25f;
-        float zCj = cj != null ? lancha.InverseTransformPoint(cj.position).z : centro.z;
-        float popa = centro.z - largo * .5f + largo * .1f;
-        float tope = Mathf.Max(popa + .3f, zCj - .7f / escala);
-        const float paso = .24f;
-        float pasoLocal = paso / escala;
-        int columnas = Mathf.Max(3, Mathf.FloorToInt(ancho * .6f / pasoLocal));
-        int filas = Mathf.Max(1, Mathf.FloorToInt((tope - popa) / pasoLocal));
-        for (int i = 0; i < cantidad; i++)
+        Vector3 pie = cj != null ? cj.position : torreta.position - Vector3.up * 1.25f;
+        Vector3 f = GeografiaIsla.Plano(lancha.forward).normalized;
+        Vector3 r = GeografiaIsla.Plano(lancha.right).normalized;
+        // Lugares posibles detrás de CJ y del protagonista; se usa el primero que tenga cubierta a su altura.
+        var candidatos = new[] { pie - f * .95f + r * .45f, pie - f * 1.05f, pie - f * .95f + r * .9f, pie - r * .8f - f * .3f };
+        Vector3 lugar = candidatos[0];
+        foreach (var c in candidatos)
         {
-            int capa = i / (columnas * filas);
-            int k = i % (columnas * filas);
-            float x = centro.x + ((k % columnas) - (columnas - 1) * .5f) * pasoLocal;
-            float z = popa + (k / columnas + .5f) * pasoLocal;
+            if (!AlturaCubierta(c, out float y) || Mathf.Abs(y - pie.y) > .3f) continue;
+            lugar = new Vector3(c.x, y, c.z);
+            break;
+        }
+
+        cooler = new GameObject("CoolerCervezas").transform;
+        cooler.SetPositionAndRotation(lugar, Quaternion.LookRotation(f) * Quaternion.Euler(0f, Random.Range(-10f, 10f), 0f));
+        var rojo = MaterialLiso(new Color(.78f, .1f, .09f), .55f);
+        var blanco = MaterialLiso(new Color(.93f, .93f, .9f), .6f);
+        var oscuro = MaterialLiso(new Color(.12f, .12f, .13f), .3f);
+        var hielo = MaterialLiso(new Color(.82f, .93f, .98f), .9f);
+
+        Pieza(cooler, "Cuerpo", new Vector3(0f, .2f, 0f), new Vector3(.62f, .4f, .4f), Quaternion.identity, rojo);
+        Pieza(cooler, "Franja", new Vector3(0f, .3f, 0f), new Vector3(.63f, .05f, .41f), Quaternion.identity, blanco);
+        Pieza(cooler, "Borde", new Vector3(0f, .405f, 0f), new Vector3(.64f, .025f, .42f), Quaternion.identity, blanco);
+        Pieza(cooler, "Hielo", new Vector3(0f, .41f, 0f), new Vector3(.56f, .03f, .34f), Quaternion.identity, hielo);
+        Pieza(cooler, "AsaIzquierda", new Vector3(-.325f, .28f, 0f), new Vector3(.03f, .04f, .18f), Quaternion.identity, oscuro);
+        Pieza(cooler, "AsaDerecha", new Vector3(.325f, .28f, 0f), new Vector3(.03f, .04f, .18f), Quaternion.identity, oscuro);
+        for (int i = 0; i < 14; i++)
+            Pieza(cooler, "Cubito", new Vector3(Random.Range(-.25f, .25f), Random.Range(.425f, .445f), Random.Range(-.14f, .14f)),
+                Vector3.one * Random.Range(.035f, .055f), Random.rotation, hielo);
+
+        // Tapa abierta hacia un costado, apoyada en su bisagra: se ve el contenido desde proa y desde popa.
+        var bisagra = new GameObject("Bisagra").transform;
+        bisagra.SetParent(cooler, false);
+        bisagra.localPosition = new Vector3(-.32f, .42f, 0f);
+        bisagra.localRotation = Quaternion.Euler(0f, 0f, 108f);
+        Pieza(bisagra, "Tapa", new Vector3(.32f, .025f, 0f), new Vector3(.64f, .05f, .42f), Quaternion.identity, rojo);
+        Pieza(bisagra, "TapaInterior", new Vector3(.32f, -.005f, 0f), new Vector3(.58f, .02f, .36f), Quaternion.identity, blanco);
+
+        // Seis botellas enterradas en el hielo, con el cuello afuera.
+        for (int i = 0; i < 6; i++)
+        {
             GameObject botella;
             if (plantillaBotella != null)
             {
-                botella = Instantiate(plantillaBotella, carga);
+                botella = Instantiate(plantillaBotella, cooler);
                 botella.SetActive(true);
             }
-            else botella = BotellaSimple(carga);
-            botella.name = "Botella_" + (i + 1);
-            botella.transform.localPosition = new Vector3(x + Random.Range(-.03f, .03f) / escala, 0f, z + Random.Range(-.03f, .03f) / escala);
-            bool tumbada = capa > 0;
-            // Medir de pie para escalar a 30 cm, despues girar.
+            else botella = BotellaSimple(cooler);
+            botella.name = "Cerveza_" + (i + 1);
+            botella.transform.localPosition = new Vector3((i % 3 - 1) * .17f + Random.Range(-.02f, .02f), 0f, (i / 3 - .5f) * .16f + Random.Range(-.02f, .02f));
+            // Medir de pie para escalar a 30 cm, después inclinar.
             botella.transform.localRotation = Quaternion.identity;
             float alto = GeografiaIsla.Limites(botella.transform).size.y;
             if (alto > .001f) botella.transform.localScale *= .3f / alto;
-            botella.transform.localRotation = Quaternion.Euler(tumbada ? 90f : Random.Range(-5f, 5f), Random.Range(0f, 360f), tumbada ? 0f : Random.Range(-5f, 5f));
-            // Apoyar la base exactamente sobre la cubierta, aunque el pivote de la botella este en el centro.
+            botella.transform.localRotation = Quaternion.Euler(Random.Range(-14f, 14f), Random.Range(0f, 360f), Random.Range(-14f, 14f));
             Bounds bb = GeografiaIsla.Limites(botella.transform);
-            botella.transform.position += Vector3.up * (cubiertaMundo + .01f + (tumbada ? .3f : 0f) - bb.min.y);
+            botella.transform.position += Vector3.up * (lugar.y + .24f - bb.min.y);
         }
+        // Se emparenta al final para que la escala de la lancha no deforme las piezas.
+        cooler.SetParent(lancha, true);
+    }
+
+    /// <summary>Altura de la cubierta de la lancha bajo ese punto, si hay casco ahí.</summary>
+    bool AlturaCubierta(Vector3 punto, out float altura)
+    {
+        altura = 0f;
+        float mejor = float.PositiveInfinity;
+        var rayo = new Ray(punto + Vector3.up * 1.5f, Vector3.down);
+        foreach (var col in lancha.GetComponentsInChildren<Collider>())
+        {
+            if (col.isTrigger || (cj != null && col.transform.IsChildOf(cj)) || col.transform.IsChildOf(jugador.transform)
+                || (torreta != null && col.transform.IsChildOf(torreta))) continue;
+            if (col.Raycast(rayo, out var hit, 3.5f) && hit.distance < mejor)
+            {
+                mejor = hit.distance;
+                altura = hit.point.y;
+            }
+        }
+        return mejor < float.PositiveInfinity;
+    }
+
+    static Material MaterialLiso(Color color, float suavidad)
+    {
+        var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        material.SetColor("_BaseColor", color);
+        material.SetFloat("_Smoothness", suavidad);
+        return material;
+    }
+
+    static void Pieza(Transform padre, string nombre, Vector3 posicion, Vector3 escala, Quaternion giro, Material material)
+    {
+        var pieza = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pieza.name = nombre;
+        Destroy(pieza.GetComponent<Collider>());
+        pieza.transform.SetParent(padre, false);
+        pieza.transform.localPosition = posicion;
+        pieza.transform.localRotation = giro;
+        pieza.transform.localScale = escala;
+        pieza.GetComponent<Renderer>().sharedMaterial = material;
     }
 }

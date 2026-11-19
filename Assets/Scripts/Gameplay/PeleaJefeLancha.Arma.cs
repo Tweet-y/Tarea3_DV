@@ -19,7 +19,7 @@ public sealed partial class PeleaJefeLancha
 
     readonly Trazadora[] balas = new Trazadora[10];
     int balaSiguiente;
-    ParticleSystem psLlama, psHumo, psCasquillos;
+    ParticleSystem psLlama, psHumo, psCasquillos, psChispas;
     Transform corredera, cinta;
     Vector3 correderaBase;
     Quaternion cintaBase;
@@ -28,7 +28,6 @@ public sealed partial class PeleaJefeLancha
     Vector3 velLancha, lanchaPrevia;
     float golpeArma, humoCalor;
     bool lanchaMedida, efectosApagados;
-    static Material materialFogonazo, materialCasquillo;
 
     // ---------------------------------------------------------------- Construcción
 
@@ -48,6 +47,16 @@ public sealed partial class PeleaJefeLancha
         tam.enabled = true;
         tam.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, .5f, 1f, 2.8f));
 
+        // Chispas de pólvora sin quemar que salen disparadas con cada tiro.
+        psChispas = EfectosPelea.SistemaManual("ChispasBoca", pivote, EfectosPelea.MaterialParticulas, 120);
+        var mainChispas = psChispas.main;
+        mainChispas.gravityModifier = .6f;
+        EfectosPelea.Desvanecer(psChispas);
+        var estela = psChispas.GetComponent<ParticleSystemRenderer>();
+        estela.renderMode = ParticleSystemRenderMode.Stretch;
+        estela.velocityScale = .035f;
+        estela.lengthScale = 1.5f;
+
         // Casquillos: cilindros de latón con giro propio, expulsados por el costado derecho.
         psCasquillos = Sistema("Casquillos", pivote, Vector3.zero, MaterialCasquillo, ParticleSystemSimulationSpace.World, 40);
         var main = psCasquillos.main;
@@ -56,9 +65,17 @@ public sealed partial class PeleaJefeLancha
         main.startRotation3D = true;
         var render = psCasquillos.GetComponent<ParticleSystemRenderer>();
         render.renderMode = ParticleSystemRenderMode.Mesh;
-        var cilindro = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        render.mesh = cilindro.GetComponent<MeshFilter>().sharedMesh;
-        Destroy(cilindro);
+        render.mesh = EfectosPelea.Cilindro;
+        // Los casquillos rebotan en la cubierta en vez de atravesarla.
+        var choque = psCasquillos.collision;
+        choque.enabled = true;
+        choque.type = ParticleSystemCollisionType.World;
+        choque.quality = ParticleSystemCollisionQuality.Low;
+        choque.bounce = .35f;
+        choque.dampen = .45f;
+        choque.lifetimeLoss = 0f;
+        choque.radiusScale = .5f;
+        choque.collidesWith = LayerMask.GetMask("Default");
         render.alignment = ParticleSystemRenderSpace.World;
 
         for (int i = 0; i < balas.Length; i++)
@@ -69,10 +86,12 @@ public sealed partial class PeleaJefeLancha
             lr.sharedMaterial = EfectosPelea.MaterialParticulas;
             lr.positionCount = 2;
             lr.useWorldSpace = true;
-            lr.startWidth = .025f;
-            lr.endWidth = .1f;
-            lr.startColor = new Color(1f, .45f, .1f, 0f);
-            lr.endColor = new Color(1f, .82f, .5f, 1f);
+            // Cola fina y anaranjada, cabeza gruesa y casi blanca: se lee como una bala incandescente.
+            lr.widthCurve = new AnimationCurve(new Keyframe(0f, .02f), new Keyframe(.8f, .07f), new Keyframe(1f, .15f));
+            var tinte = new Gradient();
+            tinte.SetKeys(new[] { new GradientColorKey(new Color(1f, .35f, .08f), 0f), new GradientColorKey(new Color(1f, .7f, .25f), .7f), new GradientColorKey(new Color(1f, .97f, .85f), 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(.75f, .7f), new GradientAlphaKey(1f, 1f) });
+            lr.colorGradient = tinte;
             lr.numCapVertices = 2;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lr.enabled = false;
@@ -126,46 +145,8 @@ public sealed partial class PeleaJefeLancha
         return ps;
     }
 
-    /// <summary>Estrella de seis puntas con centro blanco: la llamarada vista de frente.</summary>
-    static Material MaterialFogonazo
-    {
-        get
-        {
-            if (materialFogonazo != null) return materialFogonazo;
-            const int n = 64;
-            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "Fogonazo50" };
-            for (int y = 0; y < n; y++)
-                for (int x = 0; x < n; x++)
-                {
-                    Vector2 p = new Vector2(x + .5f - n * .5f, y + .5f - n * .5f) / (n * .5f);
-                    float r = p.magnitude;
-                    float punta = Mathf.Pow(Mathf.Abs(Mathf.Cos(Mathf.Atan2(p.y, p.x) * 3f)), 5f);
-                    float a = Mathf.Clamp01(1f - r / (.3f + .7f * punta));
-                    float centro = Mathf.Clamp01(1f - r / .35f);
-                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01(a * a * 1.2f + centro * centro)));
-                }
-            tex.Apply();
-            materialFogonazo = new Material(Shader.Find("Sprites/Default")) { name = "Fogonazo50", mainTexture = tex };
-            return materialFogonazo;
-        }
-    }
-
-    static Material MaterialCasquillo
-    {
-        get
-        {
-            if (materialCasquillo != null) return materialCasquillo;
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            materialCasquillo = new Material(shader) { name = "Casquillo50" };
-            var laton = new Color(.86f, .64f, .22f);
-            materialCasquillo.color = laton;
-            if (materialCasquillo.HasProperty("_BaseColor")) materialCasquillo.SetColor("_BaseColor", laton);
-            if (materialCasquillo.HasProperty("_Metallic")) materialCasquillo.SetFloat("_Metallic", .85f);
-            if (materialCasquillo.HasProperty("_Smoothness")) materialCasquillo.SetFloat("_Smoothness", .65f);
-            return materialCasquillo;
-        }
-    }
+    static Material MaterialFogonazo => EfectosPelea.MaterialFogonazo;
+    static Material MaterialCasquillo => EfectosPelea.MaterialCasquillo;
 
     // ---------------------------------------------------------------- Disparo
 
@@ -219,6 +200,23 @@ public sealed partial class PeleaJefeLancha
             }
         }
 
+        if (psChispas != null)
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                var chispa = new ParticleSystem.EmitParams
+                {
+                    position = boca,
+                    velocity = pivote.forward * Random.Range(18f, 42f) + pivote.right * Random.Range(-5f, 5f) +
+                        pivote.up * Random.Range(-4f, 5f) + velLancha,
+                    startSize = Random.Range(.025f, .05f),
+                    startLifetime = Random.Range(.08f, .22f),
+                    startColor = new Color(1f, Random.Range(.65f, .9f), .3f, 1f)
+                };
+                psChispas.Emit(chispa, 1);
+            }
+        }
+
         if (psHumo != null)
         {
             var humo = new ParticleSystem.EmitParams
@@ -242,7 +240,7 @@ public sealed partial class PeleaJefeLancha
                 velocity = pivote.right * Random.Range(2.2f, 3.6f) + pivote.up * Random.Range(1f, 2.2f) +
                     pivote.forward * Random.Range(-.6f, .4f) + velLancha,
                 startSize3D = new Vector3(.02f, .048f, .02f),
-                startLifetime = 1.1f,
+                startLifetime = 1.6f,
                 startColor = Color.white,
                 rotation3D = Random.insideUnitSphere * 180f,
                 angularVelocity3D = Random.insideUnitSphere * 900f

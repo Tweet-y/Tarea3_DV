@@ -369,6 +369,11 @@ public static class ConfigurarIsla
         acecho.velocidadCorrer = 3.6f;
         acecho.umbralCorrer = 6f;
         acecho.usarNavMesh = true;
+        // Horda: deambulan, se avisan entre ellos, rodean y embisten. DirectorZombies ajusta el resto al jugar.
+        acecho.modoHorda = true;
+        acecho.radioDeteccion = 26f;
+        acecho.rangoAtaque = 1.9f;
+        acecho.cadenciaAtaque = 1.1f;
         var vida = Obtener<ControladorVida>(instancia);
         vida.vidaMaxima = 60f;
         vida.segundosDestruir = 4f;
