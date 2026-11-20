@@ -78,6 +78,9 @@ public class InventarioJugador : MonoBehaviour
     void QuitarBatesDuplicados()
     {
         if (bate == null) return;
+        // El MeshCollider del modelo (capa Default) cruza el SphereCast de la cámara al balancear.
+        foreach (var col in bate.GetComponentsInChildren<Collider>(true))
+            if (!col.isTrigger) col.enabled = false;
         foreach (var golpe in GetComponentsInChildren<GolpeMelee>(true))
         {
             if (golpe.transform.IsChildOf(bate.transform)) continue;

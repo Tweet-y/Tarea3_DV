@@ -580,6 +580,8 @@ public static class ConfigurarIsla
         var fuente = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Synty/PolygonBattleRoyale/Prefabs/Weapons/SM_Wep_Bat_01.prefab");
         var bate = (GameObject)PrefabUtility.InstantiatePrefab(fuente);
         bate.name = "Bate";
+        foreach (var col in bate.GetComponentsInChildren<Collider>(true))
+            if (!col.isTrigger) col.enabled = false;
         var anim = jugador.GetComponentInChildren<Animator>();
         var mano = anim != null ? anim.GetBoneTransform(HumanBodyBones.RightHand) : null;
         bate.transform.SetParent(mano != null ? mano : jugador.transform, false);
