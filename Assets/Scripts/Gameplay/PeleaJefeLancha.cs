@@ -133,7 +133,9 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             var portador = nemesis.GetComponent<PortadorBotella>();
             if (portador != null && portador.botella != null)
             {
-                LiberarBotella(portador.botella, nemesis.transform.position, modelo);
+                // Nemesis espera en el mar: su botella va a un punto de suelo de la isla central.
+                var punto = GeografiaIsla.BuscarPorNombre("PuntoBotellaNemesis");
+                LiberarBotella(portador.botella, punto != null ? punto.position : nemesis.transform.position, modelo);
                 portador.botella = null;
             }
             nemesis.gameObject.SetActive(false);
@@ -190,7 +192,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             if (alto > .001f && objetivo > .001f) botella.transform.localScale *= objetivo / alto;
         }
         botella.transform.rotation = Quaternion.identity;
-        botella.transform.position = GeografiaIsla.Suelo(donde + Vector3.up * 2f, 4f) + Vector3.up * 1.1f;
+        botella.transform.position = GeografiaIsla.Suelo(donde + Vector3.up * 2f, 4f) + Vector3.up * ControladorPartidaBotellas.AlturaBotella;
         botella.gameObject.SetActive(true);
         foreach (var col in botella.GetComponentsInChildren<Collider>(true)) col.enabled = true;
     }

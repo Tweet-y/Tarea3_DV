@@ -56,6 +56,30 @@ public static class SistemaArmasFuego
         }
     }
 
+    /// <summary>
+    /// Al morir, algunos zombies sueltan munición de un arma que el jugador ya tiene (rifle o escopeta),
+    /// así nunca queda en el suelo algo que no se puede usar. Se recoge sola al pasar encima.
+    /// </summary>
+    public static void SoltarMunicionZombie(Vector3 posicion)
+    {
+        if (Random.value > .35f) return;
+        var arma = Object.FindFirstObjectByType<ControladorArmaFuego>();
+        if (arma == null) return;
+        var opciones = new System.Collections.Generic.List<ArmaFuegoDefinicion>();
+        foreach (ArmaFuegoDefinicion.Tipo tipo in System.Enum.GetValues(typeof(ArmaFuegoDefinicion.Tipo)))
+        {
+            var datos = arma.DefinicionDe(tipo);
+            if (datos != null) opciones.Add(datos);
+        }
+        if (opciones.Count == 0) return;
+        var elegido = opciones[Random.Range(0, opciones.Count)];
+        // La mitad de una caja: rifle 30 balas, escopeta 6 cartuchos.
+        int balas = Mathf.Max(2, elegido.balasPorCaja / 2);
+        Vector3 punto = posicion + new Vector3(Random.Range(-.4f, .4f), 0f, Random.Range(-.4f, .4f));
+        RecogibleArmaFuego.Crear(elegido, BuscarSuelo(punto, arma.transform), soloMunicion: true, balas: balas,
+            autoRecoger: true, duracion: 45f);
+    }
+
     public static Vector3 BuscarSuelo(Vector3 cerca, Transform jugador)
     {
         // Partir apenas sobre el punto evita colocar el arma en un techo situado muchos metros mas arriba.

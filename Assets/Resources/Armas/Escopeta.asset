@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0f2753143948c1a40bf3035871217e, type: 3}
+  m_Name: Escopeta
+  m_EditorClassIdentifier: 
+  nombre: ESCOPETA
+  tipo: 1
+  modelo: {fileID: 1345368308290578, guid: ceba150985859c24e8c9594979d9891d, type: 3}
+  disparo: {fileID: 8300000, guid: e9c1d23c34564fb4d8cd494f3c84731e, type: 3}
+  materialTraza: {fileID: 2100000, guid: a7c0fb448efb44b8976da156537a22aa, type: 2}
+  capacidad: 6
+  reservaInicial: 18
+  reservaMaxima: 42
+  segundosRecarga: 0.55
+  recargaPorCartucho: 1
+  disparosPorSegundo: 1.15
+  alcance: 45
+  danio: 15
+  perdigones: 9
+  alcanceEfectivo: 12
+  multiplicadorCabeza: 1.5
+  dispersionCadera: 5.5
+  dispersionApuntado: 3.2
+  escalaEquipada: 0.85
+  posicionEnCuerpo: {x: 0.14, y: 1.38, z: 0.25}
+  apoyoCulata: {x: 0, y: 0.045, z: -0.33}
+  separacionHombro: 0.06
+  bocaCanon: {x: 0, y: 0.095, z: 0.87}
+  agarreDerecho: {x: 0.015, y: -0.01, z: -0.01}
+  agarreIzquierdo: {x: -0.015, y: 0.02, z: 0.5}
+  expulsion: {x: 0.035, y: 0.095, z: 0.16}
+  puertoCarga: {x: 0, y: 0, z: 0.2}
+  retrocesoCamara: 2.6
+  retrocesoArma: 1.4
+  escalaFogonazo: 1.8
+  ruido: 60
+  casquillo: {fileID: 1076261940137426, guid: 3ae94000db96c8348b94e2fb434df503, type: 3}
+  escalaCasquillo: {x: 1, y: 1, z: 1}
+  retrasoCasquillo: 0.32
+  corredera: _Pump_
+  modeloMunicion: {fileID: 1274483442161292, guid: 9a343161ba13ade44bfd75098cc0605e, type: 3}
+  balasPorCaja: 12

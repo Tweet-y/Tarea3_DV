@@ -41,6 +41,9 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     private bool cursorEstabaBloqueado, miradaEstabaActiva;
     private float escalaAntesDePausa = 1f;
 
+    /// <summary>Altura del pie de cada botella sobre el suelo; flota ±0,35 m alrededor de ella.</summary>
+    public const float AlturaBotella = .55f;
+
     public int Total => total;
     public int Recogidas => cantidadRecogidas;
     public int Puntos => puntosAcumulados;
@@ -86,6 +89,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
             botellasDelMapa.AddRange(raiz.GetComponentsInChildren<ObjetoEspecialColeccionable>(true));
         botellas = botellasDelMapa.FindAll(b => b.tipo == ObjetoEspecialColeccionable.TipoBotella.Objetivo).ToArray();
         total = botellas.Length;
+        if (ModoIsla) AsentarBotellas();
         CrearBotellasCurativas();
 
         var jugador = GameObject.FindGameObjectWithTag("Player");
@@ -222,6 +226,27 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
 
         EstadoActualizado?.Invoke();
         BotellaRecogida?.Invoke();
+    }
+
+    /// <summary>
+    /// Deja cada botella justo sobre el suelo que tiene debajo. El rayo parte apenas por encima de la
+    /// botella, así que nunca la sube a un techo: solo corrige la altura de colocación.
+    /// </summary>
+    private void AsentarBotellas()
+    {
+        foreach (var botella in botellas)
+        {
+            if (botella == null || botella.GetComponentInParent<PortadorBotella>(true) != null) continue;
+            Vector3 p = botella.transform.position;
+            float menor = float.PositiveInfinity;
+            foreach (var hit in Physics.RaycastAll(p + Vector3.up * 1.2f, Vector3.down, 6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                if (hit.collider.transform.IsChildOf(botella.transform) || hit.normal.y < .6f || hit.distance >= menor) continue;
+                menor = hit.distance;
+                p.y = hit.point.y + AlturaBotella;
+            }
+            botella.transform.position = p;
+        }
     }
 
     private void CrearBotellasCurativas()

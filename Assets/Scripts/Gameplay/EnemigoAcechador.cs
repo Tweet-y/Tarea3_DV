@@ -53,7 +53,7 @@ public class EnemigoAcechador : MonoBehaviour
     // Horda
     Vector3 hogar, posicionObjetivoPrevia, velocidadObjetivo;
     float flanco, proximoVagar, lejosDesde = -1f, medidaPrevia, atascadoDesde = -1f;
-    bool embistiendo, golpeAbierto;
+    bool embistiendo, golpeAbierto, navMeshPedido;
     static float proximoGrunido;
     static int mascaraVision = -1;
     Coroutine ataque;
@@ -66,6 +66,7 @@ public class EnemigoAcechador : MonoBehaviour
     {
         animator = GetComponent<Animator>();
         agente = GetComponent<NavMeshAgent>();
+        navMeshPedido = usarNavMesh;
         animator.applyRootMotion = false;
         animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         if (TieneParametro("Grounded")) animator.SetBool("Grounded", true);
@@ -124,6 +125,26 @@ public class EnemigoAcechador : MonoBehaviour
         agente.stoppingDistance = .9f;
         // Prioridades distintas: se abren paso entre ellos en vez de trabarse en fila.
         agente.avoidancePriority = Random.Range(30, 70);
+    }
+
+    /// <summary>Mueve al enemigo a un punto del NavMesh (estaba bajo el mar o trabado) y retoma la persecución.</summary>
+    public void Reubicar(Vector3 punto)
+    {
+        transform.position = punto;
+        hogar = punto;
+        atascadoDesde = -1f;
+        if (agente == null) return;
+        // Si al arrancar no encontró NavMesh había quedado en línea recta: ahora sí lo tiene.
+        if (navMeshPedido && !usarNavMesh && Persiguiendo)
+        {
+            usarNavMesh = true;
+            agente.enabled = true;
+        }
+        if (agente.enabled)
+        {
+            agente.Warp(punto);
+            if (agente.isOnNavMesh) agente.ResetPath();
+        }
     }
 
     /// <summary>Un ruido fuerte (disparos) despierta a los zombies que estén dentro del radio.</summary>

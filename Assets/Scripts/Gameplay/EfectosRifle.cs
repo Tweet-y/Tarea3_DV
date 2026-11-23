@@ -1,9 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// Lo que se ve al disparar el fusil de asalto: llamarada en la boca, chispas, humo, casquillos que
-/// saltan y rebotan en el suelo, balas trazadoras que viajan hasta el blanco y la marca del impacto.
-/// Los sistemas se crean una vez y se reutilizan en cada tiro.
+/// Lo que se ve al disparar: llamarada en la boca, chispas, humo que sigue saliendo del cañón después
+/// de la ráfaga, balas trazadoras que viajan hasta el blanco y la marca del impacto. Los casquillos
+/// son objetos con física (CasquillosFisicos). Los sistemas se crean una vez y se reutilizan.
 /// </summary>
 public sealed class EfectosRifle : MonoBehaviour
 {
@@ -17,9 +17,10 @@ public sealed class EfectosRifle : MonoBehaviour
 
     const float Velocidad = 240f, Largo = 6f, Ventaja = 1.2f;
 
-    readonly Bala[] balas = new Bala[8];
+    readonly Bala[] balas = new Bala[16];
     int siguiente;
-    ParticleSystem llama, chispas, humo, casquillos;
+    ParticleSystem llama, chispas, humo, residual;
+    float proximoResidual;
     CharacterController cuerpo;
     bool hayAgua;
 
@@ -58,24 +59,21 @@ public sealed class EfectosRifle : MonoBehaviour
         tam.enabled = true;
         tam.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, .5f, 1f, 2.6f));
 
-        casquillos = EfectosPelea.SistemaManual("Casquillos", transform, EfectosPelea.MaterialCasquillo, 60);
-        var main = casquillos.main;
-        main.gravityModifier = 1.6f;
-        main.startSize3D = true;
-        main.startRotation3D = true;
-        var render = casquillos.GetComponent<ParticleSystemRenderer>();
-        render.renderMode = ParticleSystemRenderMode.Mesh;
-        render.mesh = EfectosPelea.Cilindro;
-        render.alignment = ParticleSystemRenderSpace.World;
-        var choque = casquillos.collision;
-        choque.enabled = true;
-        choque.type = ParticleSystemCollisionType.World;
-        choque.quality = ParticleSystemCollisionQuality.Low;
-        choque.bounce = .4f;
-        choque.dampen = .45f;
-        choque.lifetimeLoss = 0f;
-        choque.radiusScale = .5f;
-        choque.collidesWith = LayerMask.GetMask("Default");
+        // Hilo de humo que sigue saliendo del cañón caliente después de disparar.
+        residual = EfectosPelea.SistemaManual("HumoResidual", transform, EfectosPelea.MaterialParticulas, 120);
+        var colorResidual = residual.colorOverLifetime;
+        colorResidual.enabled = true;
+        var gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, .2f), new GradientAlphaKey(0f, 1f) });
+        colorResidual.color = new ParticleSystem.MinMaxGradient(gr);
+        var tamResidual = residual.sizeOverLifetime;
+        tamResidual.enabled = true;
+        tamResidual.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, .4f, 1f, 3f));
+        var ruidoResidual = residual.noise;
+        ruidoResidual.enabled = true;
+        ruidoResidual.strength = .35f;
+        ruidoResidual.frequency = .8f;
 
         for (int i = 0; i < balas.Length; i++)
         {
@@ -99,8 +97,8 @@ public sealed class EfectosRifle : MonoBehaviour
 
     /// <param name="boca">Boca del cañón en el mundo.</param>
     /// <param name="dir">Dirección en que sale la bala.</param>
-    /// <param name="fin">Punto donde termina la trayectoria.</param>
-    public void Disparo(Vector3 boca, Vector3 dir, Vector3 fin, bool apuntando)
+    /// <param name="potencia">1 = fusil; la escopeta escupe una llamarada y una nube mucho mayores.</param>
+    public void Disparo(Vector3 boca, Vector3 dir, bool apuntando, float potencia = 1f)
     {
         if (dir.sqrMagnitude < .0001f) dir = transform.forward;
         dir.Normalize();
@@ -110,7 +108,7 @@ public sealed class EfectosRifle : MonoBehaviour
         Vector3 arriba = Vector3.Cross(dir, derecha);
         Vector3 inercia = cuerpo != null ? cuerpo.velocity : Vector3.zero;
         // Apuntando, la llamarada se achica para no tapar el blanco.
-        float escala = apuntando ? .65f : 1f;
+        float escala = (apuntando ? .65f : 1f) * potencia;
 
         llama.Emit(new ParticleSystem.EmitParams
         {
@@ -121,7 +119,7 @@ public sealed class EfectosRifle : MonoBehaviour
             startColor = new Color(1f, .93f, .7f, .95f),
             rotation = Random.Range(0f, 360f)
         }, 1);
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2 + Mathf.RoundToInt(potencia * 2f); i++)
             llama.Emit(new ParticleSystem.EmitParams
             {
                 position = boca + dir * Random.Range(.07f, .17f),
@@ -132,7 +130,7 @@ public sealed class EfectosRifle : MonoBehaviour
                 rotation = Random.Range(0f, 360f)
             }, 1);
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < Mathf.RoundToInt(4 * potencia * potencia); i++)
             chispas.Emit(new ParticleSystem.EmitParams
             {
                 position = boca,
@@ -142,39 +140,48 @@ public sealed class EfectosRifle : MonoBehaviour
                 startColor = new Color(1f, Random.Range(.65f, .9f), .3f, 1f)
             }, 1);
 
-        humo.Emit(new ParticleSystem.EmitParams
+        // Bocanada de humo: unas pocas nubes que se abren y suben despacio.
+        int nubes = Mathf.RoundToInt(1 + 3 * (potencia - 1f) + Random.value);
+        for (int i = 0; i < Mathf.Max(1, nubes); i++)
+            humo.Emit(new ParticleSystem.EmitParams
+            {
+                position = boca + dir * Random.Range(.08f, .25f) * potencia,
+                velocity = dir * Random.Range(.6f, 1.8f) * potencia + Vector3.up * .35f + Random.insideUnitSphere * .25f + inercia * .5f,
+                startSize = Random.Range(.12f, .2f) * Mathf.Sqrt(potencia),
+                startLifetime = Random.Range(.6f, 1.1f) * Mathf.Sqrt(potencia),
+                startColor = new Color(.8f, .78f, .75f, .18f + .06f * potencia),
+                rotation = Random.Range(0f, 360f)
+            }, 1);
+    }
+
+    /// <summary>Bala trazadora que viaja de la boca al punto final.</summary>
+    public void Trazadora(Vector3 boca, Vector3 fin)
+    {
+        Vector3 tramo = fin - boca;
+        if (tramo.sqrMagnitude <= 4f) return;
+        ref var bala = ref balas[siguiente];
+        siguiente = (siguiente + 1) % balas.Length;
+        bala.desde = boca;
+        bala.distancia = tramo.magnitude;
+        bala.dir = tramo / bala.distancia;
+        bala.inicio = Time.time;
+        bala.activa = true;
+    }
+
+    /// <summary>Llamar cada cuadro con el cañón caliente: el humo sale con intensidad 0..1.</summary>
+    public void HumoResidual(Vector3 boca, Vector3 dir, float intensidad)
+    {
+        if (intensidad <= 0f || Time.time < proximoResidual) return;
+        proximoResidual = Time.time + Mathf.Lerp(.12f, .035f, intensidad);
+        residual.Emit(new ParticleSystem.EmitParams
         {
-            position = boca + dir * .1f,
-            velocity = dir * Random.Range(.6f, 1.5f) + Vector3.up * .35f + inercia * .5f,
-            startSize = Random.Range(.1f, .18f),
-            startLifetime = Random.Range(.5f, .9f),
-            startColor = new Color(.8f, .78f, .75f, .16f),
+            position = boca + dir * .02f,
+            velocity = Vector3.up * Random.Range(.25f, .55f) + dir * .05f + Random.insideUnitSphere * .04f,
+            startSize = Random.Range(.025f, .05f),
+            startLifetime = Random.Range(1.1f, 1.8f),
+            startColor = new Color(.85f, .84f, .82f, .09f + .1f * intensidad),
             rotation = Random.Range(0f, 360f)
         }, 1);
-
-        // El casquillo salta por la ventana de expulsión, a la derecha y hacia atrás de la boca.
-        casquillos.Emit(new ParticleSystem.EmitParams
-        {
-            position = boca - dir * .42f + derecha * .05f + arriba * .02f,
-            velocity = derecha * Random.Range(1.8f, 2.9f) + Vector3.up * Random.Range(1.2f, 2.1f) - dir * Random.Range(0f, .7f) + inercia,
-            startSize3D = new Vector3(.011f, .027f, .011f),
-            startLifetime = 2.2f,
-            startColor = Color.white,
-            rotation3D = Random.insideUnitSphere * 180f,
-            angularVelocity3D = Random.insideUnitSphere * 900f
-        }, 1);
-
-        Vector3 tramo = fin - boca;
-        if (tramo.sqrMagnitude > 4f)
-        {
-            ref var bala = ref balas[siguiente];
-            siguiente = (siguiente + 1) % balas.Length;
-            bala.desde = boca;
-            bala.distancia = tramo.magnitude;
-            bala.dir = tramo / bala.distancia;
-            bala.inicio = Time.time;
-            bala.activa = true;
-        }
     }
 
     /// <summary>Marca del tiro sobre lo que no sangra: chispas, polvo, agujero o salpicadura en el agua.</summary>

@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Tarea2_DV.slnx"
+    "dotnet.defaultSolution": "Tarea3_DV.slnx"
 }

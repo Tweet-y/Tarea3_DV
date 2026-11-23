@@ -20,12 +20,13 @@ public sealed class DirectorZombies : MonoBehaviour
     readonly List<GameObject> plantillas = new List<GameObject>();
     readonly List<EnemigoAcechador> vivos = new List<EnemigoAcechador>();
     readonly HashSet<EnemigoAcechador> generados = new HashSet<EnemigoAcechador>();
+    readonly Dictionary<EnemigoAcechador, (Vector3 pos, float desde)> rastro = new Dictionary<EnemigoAcechador, (Vector3 pos, float desde)>();
     Transform jugador;
     ControladorPartidaBotellas partida;
     NavMeshQueryFilter filtro;
     NavMeshPath ruta;
     int inicial;
-    float proximaAparicion, proximaOleada;
+    float proximaAparicion, proximaOleada, proximaRevision;
     bool listo, detenido;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -82,16 +83,23 @@ public sealed class DirectorZombies : MonoBehaviour
         ruta = new NavMeshPath();
 
         foreach (var e in FindObjectsByType<EnemigoAcechador>(FindObjectsSortMode.None))
-        {
-            if (!EsZombie(e)) continue;
-            vivos.Add(e);
-            Afinar(e);
-        }
-        inicial = vivos.Count;
-        if (inicial == 0) { Destroy(gameObject); yield break; }
+            if (EsZombie(e)) vivos.Add(e);
+        if (vivos.Count == 0) { Destroy(gameObject); yield break; }
 
         var agente = vivos[0].GetComponent<NavMeshAgent>();
         filtro = new NavMeshQueryFilter { agentTypeID = agente != null ? agente.agentTypeID : 0, areaMask = NavMesh.AllAreas };
+
+        // Algunos zombies de la escena quedaron bajo el mar o en un trozo de NavMesh aislado y nunca se movían:
+        // se llevan a tierra firme conectada con el jugador antes de empezar.
+        for (int i = vivos.Count - 1; i >= 0; i--)
+        {
+            if (Reubicar(vivos[i])) continue;
+            Destroy(vivos[i].gameObject);
+            vivos.RemoveAt(i);
+        }
+        foreach (var e in vivos) Afinar(e);
+        inicial = vivos.Count;
+        if (inicial == 0) { Destroy(gameObject); yield break; }
 
         // Copias apagadas de los zombies de la escena: de ellas salen los refuerzos.
         for (int i = 0; i < vivos.Count && plantillas.Count < 8; i++)
@@ -102,6 +110,12 @@ public sealed class DirectorZombies : MonoBehaviour
             var copia = Instantiate(origen, transform);
             origen.SetActive(true);
             copia.name = "Plantilla_" + origen.name;
+            // La intro apaga el EnemigoAcechador y el NavMeshAgent de los zombies de la escena; la copia
+            // heredaba ese estado y los refuerzos aparecían sin IA, quietos y flotando sobre el NavMesh.
+            var cerebro = copia.GetComponent<EnemigoAcechador>();
+            if (cerebro != null) cerebro.enabled = true;
+            var agenteCopia = copia.GetComponent<NavMeshAgent>();
+            if (agenteCopia != null) agenteCopia.enabled = true;
             plantillas.Add(copia);
         }
         proximaAparicion = Time.time + 18f;
@@ -129,6 +143,7 @@ public sealed class DirectorZombies : MonoBehaviour
 
         float p = Progreso;
         Limpiar();
+        RevisarAtascados();
         int objetivo = Mathf.Min(MaximoVivos, inicial + Mathf.RoundToInt(Mathf.Lerp(3f, 15f, p)));
 
         if (Time.time >= proximaAparicion)
@@ -147,6 +162,64 @@ public sealed class DirectorZombies : MonoBehaviour
         }
     }
 
+    /// <summary>El NavMesh horneado también cubre el fondo del mar: eso no es isla.</summary>
+    static bool EnTierra(Vector3 p) => p.y > GeografiaIsla.NivelAgua + .3f;
+
+    bool Conectado(Vector3 p, bool hayPie, Vector3 pie)
+    {
+        if (!EnTierra(p)) return false;
+        return !hayPie || (NavMesh.CalculatePath(p, pie, filtro, ruta) && ruta.status == NavMeshPathStatus.PathComplete);
+    }
+
+    /// <summary>Deja al zombie sobre tierra con camino hasta el jugador. Falso si no hay dónde ponerlo.</summary>
+    bool Reubicar(EnemigoAcechador e)
+    {
+        bool hayPie = NavMesh.SamplePosition(jugador.position, out var pieHit, 10f, filtro);
+        Vector3 pie = pieHit.position, origen = e.transform.position;
+        if (NavMesh.SamplePosition(origen, out var hit, 3f, filtro) && Conectado(hit.position, hayPie, pie))
+            return true;
+        // Primero cerca de donde estaba, cada vez más lejos.
+        float[] radios = { 6f, 12f, 25f, 45f };
+        foreach (float r in radios)
+            for (int intento = 0; intento < 10; intento++)
+            {
+                Vector2 c = Random.insideUnitCircle * r;
+                if (!NavMesh.SamplePosition(origen + new Vector3(c.x, 0f, c.y), out hit, 6f, filtro)) continue;
+                if (!Conectado(hit.position, hayPie, pie)) continue;
+                e.Reubicar(hit.position);
+                return true;
+            }
+        // Mar adentro: aparece como un refuerzo más, lejos y fuera de cámara.
+        if (BuscarPunto(Random.Range(0f, 360f), 360f, out var punto))
+        {
+            e.Reubicar(punto);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Un zombie que persigue sin avanzar varios segundos (trabado en el terreno) se reubica fuera de cámara.</summary>
+    void RevisarAtascados()
+    {
+        if (Time.time < proximaRevision) return;
+        proximaRevision = Time.time + 1f;
+        foreach (var e in vivos)
+        {
+            if (e == null) continue;
+            Vector3 p = e.transform.position;
+            bool persigue = e.Persiguiendo && e.Alertado && !e.Atacando
+                && GeografiaIsla.Plano(p - jugador.position).sqrMagnitude > 6f * 6f;
+            if (!persigue || !rastro.TryGetValue(e, out var previo) || (p - previo.pos).sqrMagnitude > 1f)
+            {
+                rastro[e] = (p, Time.time);
+                continue;
+            }
+            if (Time.time - previo.desde < 6f || EnVista(p)) continue;
+            if (BuscarPunto(Random.Range(0f, 360f), 360f, out var punto)) e.Reubicar(punto);
+            rastro[e] = (e.transform.position, Time.time);
+        }
+    }
+
     void Limpiar()
     {
         for (int i = vivos.Count - 1; i >= 0; i--)
@@ -155,6 +228,7 @@ public sealed class DirectorZombies : MonoBehaviour
             var vida = e != null ? e.GetComponent<ControladorVida>() : null;
             if (e == null || (vida != null && vida.Muerto))
             {
+                rastro.Remove(e);
                 generados.Remove(e);
                 vivos.RemoveAt(i);
                 continue;
@@ -164,6 +238,7 @@ public sealed class DirectorZombies : MonoBehaviour
                 && !EnVista(e.transform.position))
             {
                 generados.Remove(e);
+                rastro.Remove(e);
                 vivos.RemoveAt(i);
                 Destroy(e.gameObject);
             }
@@ -197,6 +272,7 @@ public sealed class DirectorZombies : MonoBehaviour
             float a = (angulo + Random.Range(-abanico, abanico) * .5f) * Mathf.Deg2Rad;
             Vector3 candidato = jugador.position + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * Random.Range(DistanciaMinima, DistanciaMaxima);
             if (!NavMesh.SamplePosition(candidato, out var hit, 8f, filtro)) continue;
+            if (!EnTierra(hit.position)) continue;
             if (GeografiaIsla.Plano(hit.position - jugador.position).magnitude < DistanciaMinima * .85f) continue;
             if (EnVista(hit.position)) continue;
             if (!NavMesh.CalculatePath(hit.position, pie.position, filtro, ruta) || ruta.status != NavMeshPathStatus.PathComplete) continue;

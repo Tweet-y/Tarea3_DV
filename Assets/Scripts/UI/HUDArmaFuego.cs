@@ -7,7 +7,7 @@ public sealed class HUDArmaFuego : MonoBehaviour
 {
     private ControladorArmaFuego jugador;
     private Canvas canvas;
-    private TMP_Text controles, interaccion, mira;
+    private TMP_Text controles, interaccion, mira, aviso;
 
     public void Inicializar(ControladorArmaFuego fuente)
     {
@@ -28,6 +28,9 @@ public sealed class HUDArmaFuego : MonoBehaviour
         // La mira conserva un trazo fino; el resto del HUD usa la fuente gruesa.
         EstiloUI.Aplicar(mira, EstiloUI.Fuente.Cuerpo, .2f, false);
         mira.text = "+";
+        aviso = Texto("AvisoArma", transform, new Vector2(.5f, .5f), new Vector2(0, 150), new Vector2(900, 90), 44);
+        aviso.color = EstiloUI.Oro;
+        aviso.text = "";
     }
 
     private void Update()
@@ -43,21 +46,32 @@ public sealed class HUDArmaFuego : MonoBehaviour
         mira.gameObject.SetActive(equipada && !municion.Recargando);
         mira.color = Time.time < jugador.ImpactoHasta ? EstiloUI.Rojo : Color.white;
         mira.text = Time.time < jugador.ImpactoHasta ? "×" : "+";
-        mira.fontSize = jugador.Apuntando ? 16 : 20 + jugador.Retroceso * 3f;
+        // La escopeta abre más la mira: su dispersión es mucho mayor.
+        bool escopeta = jugador.Definicion != null && jugador.Definicion.perdigones > 1;
+        mira.fontSize = (jugador.Apuntando ? 16 : 20 + jugador.Retroceso * 3f) * (escopeta ? 1.6f : 1f);
+        float restoAviso = jugador.AvisoHasta - Time.time;
+        aviso.gameObject.SetActive(restoAviso > 0f);
+        if (restoAviso > 0f)
+        {
+            aviso.text = jugador.Aviso + $"\n<size=55%><color=#FFFFFF>{(mando ? "Cruceta arriba" : "Tecla 3")} para sacarla</color></size>";
+            aviso.alpha = Mathf.Clamp01(restoAviso / .6f);
+            aviso.rectTransform.localScale = Vector3.one * (1f + .3f * Mathf.Clamp01((restoAviso - 3.1f) / .4f));
+        }
         if (equipada)
         {
             controles.text = mando ? "RT disparar · LB apuntar\nY recargar · ↓ soltar" :
-                "CLIC IZQ. disparar · CLIC DER. apuntar\nR recargar · G soltar";
+                "CLIC IZQ. disparar · CLIC DER. apuntar\nR recargar · G soltar · RUEDA cambiar";
             if (municion.Cargador == 0 && !municion.Recargando)
                 controles.text = municion.Reserva > 0 ? (mando ? "¡Y PARA RECARGAR!" : "¡R PARA RECARGAR!") : "SIN BALAS · Busca munición";
         }
         else
         {
-            controles.text = mando ? "Acércate a un rifle y pulsa X" : "Acércate a un rifle y pulsa E";
+            controles.text = mando ? "Acércate a un arma y pulsa X" : "Acércate a un arma y pulsa E";
         }
         var item = jugador.Cercana;
         interaccion.text = item == null ? "" : $"<color={EstiloUI.HexOro}>{(mando ? "[X]" : "[E]")}</color> " +
-            (item.SoloMunicion ? $"Munición de rifle +{item.Balas}" : "Recoger rifle de asalto");
+            (item.SoloMunicion ? $"Munición de {item.Definicion.nombre.ToLowerInvariant()} +{item.Balas}" :
+                $"Recoger {item.Definicion.nombre.ToLowerInvariant()}");
     }
 
     private static RectTransform Rect(string nombre, Transform padre, Vector2 ancla, Vector2 posicion, Vector2 tamano)

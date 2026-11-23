@@ -87,6 +87,8 @@ public class ControladorVida : MonoBehaviour
         alMorir?.Invoke();
         var acecho = GetComponent<EnemigoAcechador>();
         if (acecho != null) acecho.enabled = false;
+        // Algunos zombies sueltan munición; el jefe y las cajas no.
+        if (acecho != null && !esJefe) SistemaArmasFuego.SoltarMunicionZombie(transform.position);
         var agente = GetComponent<NavMeshAgent>();
         if (agente != null) agente.enabled = false;
         foreach (var golpe in GetComponentsInChildren<GolpeMelee>()) golpe.enabled = false;
