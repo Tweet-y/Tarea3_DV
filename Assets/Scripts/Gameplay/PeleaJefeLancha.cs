@@ -30,7 +30,9 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
 
     // Balance
     public const string NombreSpawn = "SPAWN_NEMESIS";
-    const float VidaNemesis = 4800f, DanioBala = 22f, Cadencia = 8f, AlcanceBala = 1200f, VelocidadLancha = 13f;
+    const float VidaNemesis = 4800f, DanioBala = 14f, Cadencia = 8f, AlcanceBala = 1200f, VelocidadLancha = 13f;
+    // La cabeza sigue premiando la puntería, pero sin derretir al jefe en segundos.
+    const float MultiplicadorCabezaJefe = 1.4f;
     const float CalorPorDisparo = .042f, Enfriamiento = .45f, DanioRocaEnMano = 160f;
 
     ControladorPartidaBotellas partida;
@@ -1009,7 +1011,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             {
                 bool cabeza = vida.EsCabeza(hit.point);
                 float multiplicador = InventarioJugador.Instancia != null ? InventarioJugador.Instancia.MultiplicadorDanio : 1f;
-                vida.RecibirDanio(DanioBala * multiplicador * (cabeza ? 2f : 1f), hit.point, dir);
+                vida.RecibirDanio(DanioBala * multiplicador * (cabeza ? MultiplicadorCabezaJefe : 1f), hit.point, dir);
                 golpeHasta = Time.time + (cabeza ? .2f : .12f);
             }
             else if (hit.point.y <= GeografiaIsla.NivelAgua + .3f) EfectosPelea.Salpicadura(hit.point, .35f);
