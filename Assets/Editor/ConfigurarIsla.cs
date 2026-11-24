@@ -91,7 +91,7 @@ public static class ConfigurarIsla
         if (cj != null) PonerCapa(cj, CapasJuego.Aliados);
         QuitarAnterior();
         var raiz = new GameObject("ContenidoIsla");
-        var puntos = PuntosNavMesh(400);
+        var puntos = PuntosNavMesh(400, NivelMar() + .3f);
         if (puntos.Count < 40) throw new Exception("El NavMesh de la isla no tiene puntos suficientes (" + puntos.Count + ").");
         Vector3 spawn = jugador.transform.position;
         Vector3 lejos = MasLejos(puntos, spawn);
@@ -623,7 +623,17 @@ public static class ConfigurarIsla
             t.gameObject.layer = indice;
     }
 
-    static List<Vector3> PuntosNavMesh(int cantidad)
+    // Altura de la superficie del agua (AguaLetal). Sin agua en la escena no se filtra nada.
+    static float NivelMar()
+    {
+        float nivel = float.NegativeInfinity;
+        foreach (var agua in UnityEngine.Object.FindObjectsByType<AguaLetal>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            nivel = Mathf.Max(nivel, agua.transform.position.y);
+        return nivel;
+    }
+
+    // Puntos sorteados sobre el NavMesh; los que quedan bajo el mar (fondo marino) se descartan.
+    static List<Vector3> PuntosNavMesh(int cantidad, float alturaMinima)
     {
         var tri = NavMesh.CalculateTriangulation();
         var puntos = new List<Vector3>();
@@ -640,7 +650,7 @@ public static class ConfigurarIsla
             float v = (float)azar.NextDouble();
             if (u + v > 1f) { u = 1f - u; v = 1f - v; }
             Vector3 p = a + u * (b - a) + v * (c - a);
-            if (NavMesh.SamplePosition(p, out var hit, 2f, filtro)) puntos.Add(hit.position);
+            if (NavMesh.SamplePosition(p, out var hit, 2f, filtro) && hit.position.y >= alturaMinima) puntos.Add(hit.position);
         }
         return puntos;
     }

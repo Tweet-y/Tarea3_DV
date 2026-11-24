@@ -152,11 +152,12 @@ public static class ValidarIsla
                 var sinGrupo = UnityEngine.Object.FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                     .Where(s => s.outputAudioMixerGroup == null).Select(s => s.name).ToArray();
                 Exigir(sinGrupo.Length == 0, "Todos los AudioSource usan el mixer" + (sinGrupo.Length == 0 ? "." : ": " + string.Join(", ", sinGrupo) + "."));
-                var jefe = GameObject.Find("NemesisJefe");
-                var portador = jefe.GetComponent<PortadorBotella>();
-                Exigir(portador != null && portador.botella != null && !portador.botella.GetComponent<Collider>().enabled, "El jefe lleva la botella sin poder recogerla.");
-                jefe.GetComponent<ControladorVida>().RecibirDanio(100000f, jefe.transform.position);
-                Exigir(portador.botella.transform.parent == null && portador.botella.GetComponent<Collider>().enabled, "Al morir, el jefe suelta la botella.");
+                // La bossfight (PeleaJefeLancha) esconde al Nemesis de tierra y suelta su botella al cargar la escena.
+                var jefe = UnityEngine.Object.FindObjectsByType<ControladorVida>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                    .FirstOrDefault(v => v.esJefe);
+                var portador = jefe != null ? jefe.GetComponent<PortadorBotella>() : null;
+                Exigir(jefe != null && !jefe.gameObject.activeSelf, "El Nemesis de tierra queda oculto: el jefe se pelea en la lancha.");
+                Exigir(portador != null && portador.botella == null, "La botella del jefe se suelta al inicio y se puede recoger.");
                 foreach (var botella in UnityEngine.Object.FindObjectsByType<ObjetoEspecialColeccionable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                     if (botella.tipo == ObjetoEspecialColeccionable.TipoBotella.Objetivo && !botella.YaRecogido)
                         botella.Recoger(jugador);
@@ -169,6 +170,13 @@ public static class ValidarIsla
             else if (paso == 1)
             {
                 var partida = ControladorPartidaBotellas.Instancia;
+                // Con bossfight, la victoria llega al final del combate (no se simula): basta con que arranque.
+                if (PeleaJefeLancha.Instancia != null)
+                {
+                    Exigir(IntroduccionIsla.Extra && partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso, "Subir a la lancha inicia la bossfight.");
+                    Terminar(0);
+                    return;
+                }
                 if (partida == null || partida.Estado != ControladorPartidaBotellas.Resultado.Victoria) return;
                 Exigir(Time.timeScale == 0f, "Subir a la lancha termina en victoria.");
                 Terminar(0);

@@ -7259,11 +7259,27 @@ MonoBehaviour:
   retrasoAparicion: 0
   pisadaPesada: {fileID: 0}
   volumenPisada: 1
-  radioDeteccion: 12
-  rangoAtaque: 1.7
-  cadenciaAtaque: 1.4
+  radioDeteccion: 26
+  rangoAtaque: 1.9
+  cadenciaAtaque: 1.1
   golpe: {fileID: 6973394821052744014}
   sonidoAtaque: {fileID: 0}
+  alAtacar:
+    m_PersistentCalls:
+      m_Calls: []
+  alDetectarObjetivo:
+    m_PersistentCalls:
+      m_Calls: []
+  alMorir:
+    m_PersistentCalls:
+      m_Calls: []
+  modoHorda: 1
+  radioOido: 7
+  anguloVision: 140
+  radioVagar: 9
+  velocidadVagar: 1.1
+  distanciaOlvido: 60
+  embestida: 5.5
 --- !u!114 &2003352667924811278
 MonoBehaviour:
   m_ObjectHideFlags: 0

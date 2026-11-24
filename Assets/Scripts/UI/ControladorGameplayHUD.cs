@@ -271,7 +271,7 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         var balas = equipada ? armaJugador.Municion : null;
         municion.text = equipada ? $"{balas.Cargador:00} - {balas.Reserva:000}" : "--";
         municion.color = equipada && balas.Cargador == 0 ? EstiloUI.Rojo : Color.white;
-        nombreArma.text = !equipada ? "SIN ARMA" : balas.Recargando ? $"RECARGANDO {armaJugador.RecargaRestante:0.0}s" : "RIFLE DE ASALTO";
+        nombreArma.text = !equipada ? (InventarioJugador.Instancia != null && InventarioJugador.Instancia.armaActiva == InventarioJugador.Arma.Bate ? "BATE" : "SIN ARMA") : balas.Recargando ? $"RECARGANDO {armaJugador.RecargaRestante:0.0}s" : "RIFLE DE ASALTO";
         marcoRecarga.SetActive(equipada && balas.Recargando);
         if (equipada && balas.Recargando)
             rellenoRecarga.localScale = new Vector3(Mathf.Clamp01(1 - armaJugador.RecargaRestante / Mathf.Max(.1f, armaJugador.Definicion.segundosRecarga)), 1, 1);

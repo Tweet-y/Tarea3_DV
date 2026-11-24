@@ -30,6 +30,11 @@ public class EnemigoAcechador : MonoBehaviour
     public GolpeMelee golpe;
     public AudioClip sonidoAtaque;
 
+    [Header("Eventos (como MobController del curso)")]
+    public UnityEngine.Events.UnityEvent alAtacar;
+    public UnityEngine.Events.UnityEvent<Transform> alDetectarObjetivo;
+    public UnityEngine.Events.UnityEvent alMorir;
+
     [Header("Horda (zombies)")]
     public bool modoHorda;
     [Tooltip("A esta distancia lo detecta aunque esté de espaldas o detrás de un muro.")]
@@ -82,11 +87,22 @@ public class EnemigoAcechador : MonoBehaviour
     void OnEnable()
     {
         if (!Activos.Contains(this)) Activos.Add(this);
+        // ControladorVida puede añadirse después de Awake: se engancha aquí y no se duplica.
+        var vida = GetComponent<ControladorVida>();
+        if (vida != null)
+        {
+            vida.alMorir.RemoveListener(AlMorirVida);
+            vida.alMorir.AddListener(AlMorirVida);
+        }
         StartCoroutine(Perseguir());
     }
 
+    void AlMorirVida() => alMorir?.Invoke();
+
     void OnDisable()
     {
+        var vida = GetComponent<ControladorVida>();
+        if (vida != null) vida.alMorir.RemoveListener(AlMorirVida);
         Activos.Remove(this);
         StopAllCoroutines();
         Persiguiendo = false;
@@ -143,6 +159,7 @@ public class EnemigoAcechador : MonoBehaviour
     {
         bool nuevo = !detectado;
         detectado = true;
+        if (nuevo) alDetectarObjetivo?.Invoke(objetivo);
         lejosDesde = -1f;
         if (!nuevo || !modoHorda) return;
         proximoVagar = 0f;
@@ -361,6 +378,7 @@ public class EnemigoAcechador : MonoBehaviour
                 return;
             }
             detectado = true;
+            alDetectarObjetivo?.Invoke(objetivo);
         }
         if (rangoAtaque > 0f && distancia <= rangoAtaque)
         {
@@ -413,6 +431,7 @@ public class EnemigoAcechador : MonoBehaviour
     IEnumerator Atacar()
     {
         Atacando = true;
+        alAtacar?.Invoke();
         if (animator != null && TieneParametro("Atacar")) animator.SetTrigger("Atacar");
         Sonido.Reproducir(sonidoAtaque != null ? sonidoAtaque : BancoSonidos.Actual != null ? BancoSonidos.Actual.swoosh : null, transform.position, .7f, "Efectos");
         embistiendo = modoHorda;
