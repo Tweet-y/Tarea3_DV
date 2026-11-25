@@ -27,6 +27,13 @@ public class CajaRompible : MonoBehaviour
         if (vida != null) vida.alMorir.RemoveListener(Romper);
     }
 
+    /// <summary>Entrada del interactuador: la vida se encarga del sonido, la animacion y de destruirla.</summary>
+    public void Abrir()
+    {
+        var vida = GetComponent<ControladorVida>();
+        if (vida != null && !vida.Muerto) vida.RecibirDanio(vida.vidaMaxima, transform.position);
+    }
+
     public void Romper()
     {
         Sonido.Reproducir(sonidoRotura != null ? sonidoRotura : BancoSonidos.Actual != null ? BancoSonidos.Actual.explosion : null, transform.position, .9f, "Efectos");

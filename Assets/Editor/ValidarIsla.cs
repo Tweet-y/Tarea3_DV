@@ -142,6 +142,19 @@ public static class ValidarIsla
                 caja.GetComponent<ControladorVida>().RecibirDanio(5f, caja.transform.position);
                 int itemsAhora = UnityEngine.Object.FindObjectsByType<RecogibleItem>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
                 Exigir(itemsAhora > items, "La caja se rompe y suelta un objeto.");
+                var enteras = UnityEngine.Object.FindObjectsByType<CajaRompible>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                    .Where(c => !c.GetComponent<ControladorVida>().Muerto).ToArray();
+                var zonaCerca = enteras.Length > 0 ? enteras[0].GetComponentInChildren<ControladorInteraccion>() : null;
+                var zonaLejos = enteras.Length > 1 ? enteras[1].GetComponentInChildren<ControladorInteraccion>() : null;
+                var colZona = zonaCerca != null ? zonaCerca.GetComponent<Collider>() : null;
+                Exigir(zonaCerca != null && zonaLejos != null && colZona != null && colZona.isTrigger
+                    && colZona.gameObject.layer == LayerMask.NameToLayer(CapasJuego.Recogibles),
+                    "Cada caja trae una zona de interacción: trigger en la capa Recogibles.");
+                zonaLejos.Interactuar();
+                Exigir(!enteras[1].GetComponent<ControladorVida>().Muerto, "Sin el jugador dentro, el interactuador no rompe la caja.");
+                zonaCerca.EntrarDeteccion();
+                zonaCerca.Interactuar();
+                Exigir(enteras[0].GetComponent<ControladorVida>().Muerto, "Con el jugador dentro, el interactuador rompe la caja.");
                 var inventario = jugador.GetComponent<InventarioJugador>();
                 partida.RecibirDanio(.4f);
                 float danada = partida.Vida;

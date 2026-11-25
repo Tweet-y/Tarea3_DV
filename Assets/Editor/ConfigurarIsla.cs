@@ -6,10 +6,12 @@ using System.Reflection;
 using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Audio;
+using UnityEngine.Events;
 
 /// <summary>Capas, NavMesh, zombies, cajas, botellas y jefe de MapaV2.</summary>
 [InitializeOnLoad]
@@ -556,7 +558,28 @@ public static class ConfigurarIsla
             rompible.efectoImpacto = efecto;
             rompible.sonidoRotura = ClipAudio("Explosion 1.wav");
             PonerCapa(caja, CapasJuego.Objetos);
+            ZonaInteraccion(caja, rompible);
         }
+    }
+
+    /// <summary>Zona de interaccion de la caja: trigger en Recogibles (solo choca con el jugador) y romper enganchado a alInteractuar.</summary>
+    static void ZonaInteraccion(GameObject caja, CajaRompible rompible)
+    {
+        var zona = new GameObject("ZonaInteraccion");
+        zona.transform.SetParent(caja.transform, false);
+        var esfera = zona.AddComponent<SphereCollider>();
+        esfera.isTrigger = true;
+        esfera.radius = 2f;
+        PonerCapa(zona, CapasJuego.Recogibles);
+        var interaccion = zona.AddComponent<ControladorInteraccion>();
+        interaccion.eventos = new ControladorInteraccion.Eventos
+        {
+            alEntrarDeteccion = new UnityEvent(),
+            alSalirDeteccion = new UnityEvent(),
+            alInteractuar = new UnityEvent(),
+        };
+        UnityEventTools.AddVoidPersistentListener(interaccion.eventos.alInteractuar, rompible.Abrir);
+        EditorUtility.SetDirty(interaccion);
     }
 
     static void ColocarZombies(Transform raiz, GameObject[] prefabs, List<Vector3> puntos, Vector3 spawn)
