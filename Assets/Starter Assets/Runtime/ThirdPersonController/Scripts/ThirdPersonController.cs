@@ -86,6 +86,13 @@ namespace StarterAssets
         // cinemachine
         private float _cinemachineTargetYaw;
         private float _cinemachineTargetPitch;
+        private Vector2 _retrocesoPendiente;
+
+        /// <summary>Patada del arma: sube la mira (grados) y la desvía un poco a un lado.</summary>
+        public void AgregarRetroceso(float arriba, float lado)
+        {
+            _retrocesoPendiente += new Vector2(arriba, lado);
+        }
 
         // player
         private float _speed;
@@ -228,6 +235,15 @@ namespace StarterAssets
                 float sensibilidad = EnModoApuntado ? AimLookSensitivity : 1f;
                 _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier * sensibilidad;
                 _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier * sensibilidad;
+            }
+
+            // Retroceso del arma: la mira sube en unos pocos cuadros en vez de saltar de golpe.
+            if (_retrocesoPendiente.sqrMagnitude > .0001f && !LockCameraPosition)
+            {
+                Vector2 paso = _retrocesoPendiente * Mathf.Clamp01(Time.deltaTime * 28f);
+                _cinemachineTargetPitch -= paso.x;
+                _cinemachineTargetYaw += paso.y;
+                _retrocesoPendiente -= paso;
             }
 
             // clamp our rotations so our values are limited 360 degrees

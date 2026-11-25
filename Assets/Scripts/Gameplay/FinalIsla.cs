@@ -1,7 +1,7 @@
 using System.Collections;
 using UnityEngine;
 
-/// <summary>Al juntar las 30 botellas enciende los fuegos y deja la lancha de CJ en muelle_final.
+/// <summary>Al juntar todas las botellas enciende los fuegos y deja la lancha de CJ en muelle_final.
 /// Subir a la lancha inicia la pelea final contra Nemesis (PeleaJefeLancha).</summary>
 public class FinalIsla : MonoBehaviour
 {
@@ -36,6 +36,7 @@ public class FinalIsla : MonoBehaviour
 
     void Start()
     {
+        SonidoLancha.Instalar(lancha);
         var partida = ControladorPartidaBotellas.Instancia;
         if (partida != null)
         {

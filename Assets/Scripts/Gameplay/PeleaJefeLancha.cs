@@ -30,7 +30,9 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
 
     // Balance
     public const string NombreSpawn = "SPAWN_NEMESIS";
-    const float VidaNemesis = 4800f, DanioBala = 22f, Cadencia = 8f, AlcanceBala = 1200f, VelocidadLancha = 13f;
+    const float VidaNemesis = 4800f, DanioBala = 14f, Cadencia = 8f, AlcanceBala = 1200f, VelocidadLancha = 13f;
+    // La cabeza sigue premiando la puntería, pero sin derretir al jefe en segundos.
+    const float MultiplicadorCabezaJefe = 1.4f;
     const float CalorPorDisparo = .042f, Enfriamiento = .45f, DanioRocaEnMano = 160f;
 
     ControladorPartidaBotellas partida;
@@ -131,7 +133,9 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             var portador = nemesis.GetComponent<PortadorBotella>();
             if (portador != null && portador.botella != null)
             {
-                LiberarBotella(portador.botella, nemesis.transform.position, modelo);
+                // Nemesis espera en el mar: su botella va a un punto de suelo de la isla central.
+                var punto = GeografiaIsla.BuscarPorNombre("PuntoBotellaNemesis");
+                LiberarBotella(portador.botella, punto != null ? punto.position : nemesis.transform.position, modelo);
                 portador.botella = null;
             }
             nemesis.gameObject.SetActive(false);
@@ -188,7 +192,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             if (alto > .001f && objetivo > .001f) botella.transform.localScale *= objetivo / alto;
         }
         botella.transform.rotation = Quaternion.identity;
-        botella.transform.position = GeografiaIsla.Suelo(donde + Vector3.up * 2f, 4f) + Vector3.up * 1.1f;
+        botella.transform.position = GeografiaIsla.Suelo(donde + Vector3.up * 2f, 4f) + Vector3.up * ControladorPartidaBotellas.AlturaBotella;
         botella.gameObject.SetActive(true);
         foreach (var col in botella.GetComponentsInChildren<Collider>(true)) col.enabled = true;
     }
@@ -269,6 +273,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             return;
         }
         lancha = final.lancha;
+        SonidoLancha.Instalar(lancha);
         cj = final.cj;
         StartCoroutine(Secuencia());
     }
@@ -746,7 +751,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         Vector3 cabezaCJ = (cj != null ? cj.position : lancha.position) + Vector3.up * 1.55f;
         Vector3 frenteCJ = cj != null ? cj.forward : lancha.forward;
         Vector3 ladoCJ = cj != null ? cj.right : lancha.right;
-        yield return Plano(dialogo, "CJ", "¡Chucha, se vino el grandote! Yo manejo y le damos la vuelta a la isla. ¡Tú agárrate de la punto cincuenta y revienta toda la wea que nos tire!", 4f,
+        yield return Plano(dialogo, "CJ", "¡Chucha, se vino el grandote! Yo manejo y le damos vuelta a la isla. ¡Tú agárrate de la metraca punto cincuenta y revienta toda la wea que nos tire!", 4f,
             s => (cabezaCJ + frenteCJ * 2.4f + ladoCJ * (.7f - .3f * s) + Vector3.up * .15f, cabezaCJ), 45f, "cj_pelea_inicio");
         dialogo.Cerrar();
 
@@ -827,7 +832,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         };
         bool hecho = false;
         dialogo.FijarNombre("CJ");
-        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Lo botaste, weón! Treinta botellas y un gigante menos... ¡Ahora sí que nos vamos a curar como la gente!", 3.5f, "cj_final"), () => hecho = true));
+        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Te lo pitiaste, weón! Ahora llevémonos todo el copete a la casa y nos curamos como la gente.", 3.5f, "cj_final"), () => hecho = true));
         while (!hecho || reloj < 3f)
         {
             reloj += Time.deltaTime;
@@ -1009,7 +1014,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             {
                 bool cabeza = vida.EsCabeza(hit.point);
                 float multiplicador = InventarioJugador.Instancia != null ? InventarioJugador.Instancia.MultiplicadorDanio : 1f;
-                vida.RecibirDanio(DanioBala * multiplicador * (cabeza ? 2f : 1f), hit.point, dir);
+                vida.RecibirDanio(DanioBala * multiplicador * (cabeza ? MultiplicadorCabezaJefe : 1f), hit.point, dir);
                 golpeHasta = Time.time + (cabeza ? .2f : .12f);
             }
             else if (hit.point.y <= GeografiaIsla.NivelAgua + .3f) EfectosPelea.Salpicadura(hit.point, .35f);
@@ -1078,12 +1083,12 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         if (faseJefe == 2)
         {
             Mensaje("¡NEMESIS ESTÁ FURIOSO!", 2.5f);
-            Decir("¡Puta, ahora tira de a dos! ¡No dejí que lleguen, weón!");
+            Decir("¡Puta, ahora está tirando de a dos! ¡No dejes que nos lleguen, weón!", "cj_de_a_dos");
         }
         else
         {
             Mensaje("¡LANZA TODO EN LLAMAS!", 2.5f);
-            Decir("¡Está más choreado que la cresta! ¡Dale en la cabeza, que ya cae!");
+            Decir("¡Está más choreado que la cresta! ¡Dale, que ya se cae!", "cj_choreado");
         }
         yield break;
     }
@@ -1102,7 +1107,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         if (nombre.Contains("Barrel") || nombre.Contains("Propane")) return "¡Ojo con ese barril, que va a reventar!";
         if (nombre.Contains("Container")) return "¡Un contenedor! ¡Este weón está más loco que una cabra!";
         if (nombre.Contains("Rock")) return "¡Piedra grande, piedra grande, weón!";
-        return "¡Está desarmando la isla entera, el desgraciado!";
+        return "¡Está desarmando la isla entera este desgraciado!";
     }
 
     Vector3 PosicionMano()
@@ -1178,11 +1183,40 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         mensajeHasta = Time.time + segundos;
     }
 
-    void Decir(string texto)
+    AudioSource vozCJ;
+
+    /// <param name="voz">Clip en Resources/Voces (sin extensión). Sin clip, la frase queda solo escrita.</param>
+    void Decir(string texto, string voz = null)
     {
         if (lineaCJ == null || Time.time < lineaHasta - 1.5f) return;
+        // No cortar a CJ a mitad de una frase grabada.
+        if (vozCJ != null && vozCJ.isPlaying) return;
         lineaCJ.text = texto;
-        lineaHasta = Time.time + 3f;
+        float duracion = 3f;
+        var clip = string.IsNullOrEmpty(voz) ? null : Resources.Load<AudioClip>("Voces/" + voz);
+        if (clip != null)
+        {
+            if (vozCJ == null)
+            {
+                vozCJ = gameObject.AddComponent<AudioSource>();
+                vozCJ.playOnAwake = false;
+                vozCJ.spatialBlend = 0f;
+                Sonido.Asignar(vozCJ, "Voces");
+            }
+            vozCJ.clip = clip;
+            vozCJ.Play();
+            duracion = Mathf.Max(duracion, clip.length + .4f);
+        }
+        lineaHasta = Time.time + duracion;
+    }
+
+    /// <summary>Voz grabada que acompaña a Frase(), si existe para ese objeto.</summary>
+    static string VozFrase(string nombre)
+    {
+        if (nombre.Contains("Veh_")) return "cj_auto";
+        if (nombre.Contains("Tank") || nombre.Contains("Portaloo") || nombre.Contains("Barrel") || nombre.Contains("Propane")
+            || nombre.Contains("Container") || nombre.Contains("Rock")) return null;
+        return "cj_desarmando";
     }
 
     void CrearHUD()

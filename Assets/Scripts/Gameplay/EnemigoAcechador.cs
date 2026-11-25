@@ -57,8 +57,8 @@ public class EnemigoAcechador : MonoBehaviour
     float proximoAtaque, aturdidoHasta;
     // Horda
     Vector3 hogar, posicionObjetivoPrevia, velocidadObjetivo;
-    float flanco, proximoVagar, lejosDesde = -1f, medidaPrevia;
-    bool embistiendo;
+    float flanco, proximoVagar, lejosDesde = -1f, medidaPrevia, atascadoDesde = -1f;
+    bool embistiendo, golpeAbierto, navMeshPedido;
     static float proximoGrunido;
     static int mascaraVision = -1;
     Coroutine ataque;
@@ -71,6 +71,7 @@ public class EnemigoAcechador : MonoBehaviour
     {
         animator = GetComponent<Animator>();
         agente = GetComponent<NavMeshAgent>();
+        navMeshPedido = usarNavMesh;
         animator.applyRootMotion = false;
         animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         if (TieneParametro("Grounded")) animator.SetBool("Grounded", true);
@@ -142,6 +143,26 @@ public class EnemigoAcechador : MonoBehaviour
         agente.avoidancePriority = Random.Range(30, 70);
     }
 
+    /// <summary>Mueve al enemigo a un punto del NavMesh (estaba bajo el mar o trabado) y retoma la persecución.</summary>
+    public void Reubicar(Vector3 punto)
+    {
+        transform.position = punto;
+        hogar = punto;
+        atascadoDesde = -1f;
+        if (agente == null) return;
+        // Si al arrancar no encontró NavMesh había quedado en línea recta: ahora sí lo tiene.
+        if (navMeshPedido && !usarNavMesh && Persiguiendo)
+        {
+            usarNavMesh = true;
+            agente.enabled = true;
+        }
+        if (agente.enabled)
+        {
+            agente.Warp(punto);
+            if (agente.isOnNavMesh) agente.ResetPath();
+        }
+    }
+
     /// <summary>Un ruido fuerte (disparos) despierta a los zombies que estén dentro del radio.</summary>
     public static void Ruido(Vector3 posicion, float radio)
     {
@@ -187,8 +208,13 @@ public class EnemigoAcechador : MonoBehaviour
         if (Vector3.Angle(transform.forward, hacia) > anguloVision * .5f) return false;
         if (mascaraVision < 0) mascaraVision = LayerMask.GetMask("Default");
         Vector3 ojos = transform.position + Vector3.up * 1.6f;
-        Vector3 pecho = objetivo.position + Vector3.up * 1.2f;
-        return !Physics.Linecast(ojos, pecho, out var tapa, mascaraVision, QueryTriggerInteraction.Ignore)
+        // Basta con ver el pecho o la cabeza: un desnivel o una baranda baja no deben dejarlo ciego.
+        return Visible(ojos, objetivo.position + Vector3.up * 1.2f) || Visible(ojos, objetivo.position + Vector3.up * 1.75f);
+    }
+
+    bool Visible(Vector3 desde, Vector3 hasta)
+    {
+        return !Physics.Linecast(desde, hasta, out var tapa, mascaraVision, QueryTriggerInteraction.Ignore)
             || tapa.transform.IsChildOf(objetivo) || tapa.transform.IsChildOf(transform);
     }
 
@@ -270,15 +296,19 @@ public class EnemigoAcechador : MonoBehaviour
             Animar(0f);
             return;
         }
-        if (rangoAtaque > 0f && distancia <= rangoAtaque)
+        // Atascado (el jugador está sobre una roca, un muelle o fuera del NavMesh): alcanza un poco más lejos.
+        bool atascado = atascadoDesde >= 0f && Time.time - atascadoDesde > .5f;
+        float alcance = rangoAtaque + (atascado ? .8f : 0f);
+        if (rangoAtaque > 0f && distancia <= alcance)
         {
             Encarar(420f);
             if (Time.time >= proximoAtaque)
             {
+                atascadoDesde = -1f;
                 ataque = StartCoroutine(Atacar());
                 return;
             }
-            if (distancia <= rangoAtaque * .65f)
+            if (distancia <= rangoAtaque * .65f || atascado)
             {
                 if (listo) agente.isStopped = true;
                 Animar(0f);
@@ -289,6 +319,21 @@ public class EnemigoAcechador : MonoBehaviour
         {
             agente.isStopped = false;
             agente.speed = velocidadCorrer;
+            // Si el camino no lo acerca (ruta parcial o trabado contra algo) y el jugador está cerca,
+            // deja la ruta y va directo hacia él; Move lo mantiene dentro del NavMesh.
+            bool quieto = !agente.pathPending && agente.velocity.sqrMagnitude < .09f;
+            if (distancia < 10f && (quieto || agente.pathStatus != NavMeshPathStatus.PathComplete))
+            {
+                if (atascadoDesde < 0f) atascadoDesde = Time.time;
+            }
+            else atascadoDesde = -1f;
+            if (atascado)
+            {
+                Encarar(420f);
+                agente.Move(transform.forward * velocidadCorrer * Time.deltaTime);
+                Animar(velocidadCorrer);
+                return;
+            }
             Animar(agente.velocity.magnitude);
             return;
         }
@@ -433,13 +478,28 @@ public class EnemigoAcechador : MonoBehaviour
         Atacando = true;
         alAtacar?.Invoke();
         if (animator != null && TieneParametro("Atacar")) animator.SetTrigger("Atacar");
+        var voz = GetComponent<SonidoZombie>();
+        if (voz != null) voz.Ataque();
         Sonido.Reproducir(sonidoAtaque != null ? sonidoAtaque : BancoSonidos.Actual != null ? BancoSonidos.Actual.swoosh : null, transform.position, .7f, "Efectos");
         embistiendo = modoHorda;
+        golpeAbierto = false;
         var clip = ClipConEventos(animator);
         if (clip != null)
         {
             // El clip abre y cierra el golpe con ActivaArma / DesactivaArma, como Ataque01 del curso.
-            yield return new WaitForSeconds(clip.length);
+            // Si el Animator no llegó a reproducirlo (venía de una reacción al impacto, transición
+            // cortada...), el evento nunca llega y el zombie quedaba plantado: se pega igual a mitad del clip.
+            float mitad = clip.length * .5f;
+            yield return new WaitForSeconds(mitad);
+            if (!golpeAbierto && golpe != null)
+            {
+                golpeAbierto = true;
+                golpe.Golpear();
+                yield return new WaitForSeconds(.2f);
+                golpe.FinGolpe();
+                mitad += .2f;
+            }
+            yield return new WaitForSeconds(Mathf.Max(0f, clip.length - mitad));
         }
         else
         {
@@ -458,7 +518,11 @@ public class EnemigoAcechador : MonoBehaviour
     // Eventos de animación del clip de ataque.
     public void ActivaArma()
     {
-        if (Atacando && enabled && golpe != null) golpe.InicioGolpe();
+        if (Atacando && enabled && golpe != null && !golpeAbierto)
+        {
+            golpeAbierto = true;
+            golpe.InicioGolpe();
+        }
     }
 
     public void DesactivaArma()

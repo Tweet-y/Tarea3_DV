@@ -2,11 +2,12 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>Bate o rifle, botiquines y bebida energética.</summary>
+/// <summary>Bate, rifle o escopeta, botiquines y bebida energética.</summary>
 [DisallowMultipleComponent]
 public class InventarioJugador : MonoBehaviour
 {
-    public enum Arma { Bate, Rifle }
+    // El orden importa: los valores se guardan serializados en la escena.
+    public enum Arma { Bate, Rifle, Escopeta }
     public static InventarioJugador Instancia { get; private set; }
     public Arma armaActiva = Arma.Bate;
     public int botiquines;
@@ -17,7 +18,7 @@ public class InventarioJugador : MonoBehaviour
     public bool BuffActivo { get; private set; }
     public GameObject bate;
 
-    InputAction botiquin, bebida, elegirBate, elegirRifle;
+    InputAction botiquin, bebida, elegirBate, elegirRifle, elegirEscopeta;
     StarterAssets.ThirdPersonController locomocion;
     float velocidadBase, sprintBase;
     bool velocidadesGuardadas;
@@ -30,6 +31,7 @@ public class InventarioJugador : MonoBehaviour
         bebida = Boton("Buff", "<Keyboard>/f");
         elegirBate = Boton("Bate", "<Keyboard>/1", "<Gamepad>/dpad/left");
         elegirRifle = Boton("Rifle", "<Keyboard>/2", "<Gamepad>/dpad/right");
+        elegirEscopeta = Boton("Escopeta", "<Keyboard>/3", "<Gamepad>/dpad/up");
     }
 
     InputAction Boton(string nombre, params string[] rutas)
@@ -45,6 +47,7 @@ public class InventarioJugador : MonoBehaviour
         bebida.Enable();
         elegirBate.Enable();
         elegirRifle.Enable();
+        elegirEscopeta.Enable();
     }
 
     void OnDisable()
@@ -53,6 +56,7 @@ public class InventarioJugador : MonoBehaviour
         bebida.Disable();
         elegirBate.Disable();
         elegirRifle.Disable();
+        elegirEscopeta.Disable();
     }
 
     void OnDestroy()
@@ -61,13 +65,22 @@ public class InventarioJugador : MonoBehaviour
         bebida.Dispose();
         elegirBate.Dispose();
         elegirRifle.Dispose();
+        elegirEscopeta.Dispose();
         if (Instancia == this) Instancia = null;
     }
 
     void Start()
     {
         QuitarBatesDuplicados();
-        AjustarBateEnMano();
+        // El bate se toma a dos manos con una pose procedural; sin rig Humanoid queda pegado a la mano.
+        var rig = GetComponentInChildren<Animator>();
+        if (bate != null && rig != null && rig.isHuman)
+        {
+            var pose = GetComponent<PoseBateProcedural>();
+            if (pose == null) pose = gameObject.AddComponent<PoseBateProcedural>();
+            pose.Inicializar(bate.transform, rig);
+        }
+        else AjustarBateEnMano();
         AplicarArma();
     }
 
@@ -134,26 +147,47 @@ public class InventarioJugador : MonoBehaviour
         var partida = ControladorPartidaBotellas.Instancia;
         bool puede = partida != null && !partida.EstaPausada && partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso && !IntroduccionIsla.Activa;
         if (puede && elegirBate.WasPressedThisFrame()) armaActiva = Arma.Bate;
-        if (puede && elegirRifle.WasPressedThisFrame() && TieneRifle()) armaActiva = Arma.Rifle;
+        if (puede && elegirRifle.WasPressedThisFrame() && Tiene(Arma.Rifle)) armaActiva = Arma.Rifle;
+        if (puede && elegirEscopeta.WasPressedThisFrame() && Tiene(Arma.Escopeta)) armaActiva = Arma.Escopeta;
+        if (puede && Mouse.current != null)
+        {
+            float rueda = Mouse.current.scroll.ReadValue().y;
+            if (Mathf.Abs(rueda) > .1f) Ciclar(rueda < 0f ? 1 : -1);
+        }
         if (puede && botiquin.WasPressedThisFrame()) UsarBotiquin();
         if (puede && bebida.WasPressedThisFrame()) UsarBuff();
         EntregarMunicion();
         AplicarArma();
     }
 
-    bool TieneRifle()
+    /// <summary>El bate siempre está; las armas de fuego solo si se recogieron.</summary>
+    public bool Tiene(Arma arma)
     {
-        var arma = GetComponent<ControladorArmaFuego>();
-        return arma != null && arma.Equipada;
+        if (arma == Arma.Bate) return true;
+        var fuego = GetComponent<ControladorArmaFuego>();
+        if (fuego == null) return false;
+        return fuego.Tiene(arma == Arma.Escopeta ? ArmaFuegoDefinicion.Tipo.Escopeta : ArmaFuegoDefinicion.Tipo.Rifle);
+    }
+
+    /// <summary>Rueda del mouse: pasa a la siguiente arma que se tenga.</summary>
+    void Ciclar(int paso)
+    {
+        int total = System.Enum.GetValues(typeof(Arma)).Length;
+        int i = (int)armaActiva;
+        for (int n = 0; n < total; n++)
+        {
+            i = (i + paso + total) % total;
+            if (Tiene((Arma)i)) { armaActiva = (Arma)i; return; }
+        }
     }
 
     public void AplicarArma()
     {
         var arma = GetComponent<ControladorArmaFuego>();
-        // Sin rifle en las manos no hay nada que seleccionar: volver al bate.
-        if (armaActiva == Arma.Rifle && (arma == null || !arma.Equipada)) armaActiva = Arma.Bate;
+        // Sin esa arma de fuego no hay nada que seleccionar: volver al bate.
+        if (!Tiene(armaActiva)) armaActiva = Arma.Bate;
         if (bate != null) bate.SetActive(armaActiva == Arma.Bate);
-        if (arma != null) arma.DisparoBloqueado = armaActiva != Arma.Rifle;
+        if (arma != null) arma.DisparoBloqueado = armaActiva == Arma.Bate;
     }
 
     public void SumarMunicion(int cantidad)
@@ -166,29 +200,50 @@ public class InventarioJugador : MonoBehaviour
     {
         if (municionPendiente <= 0) return;
         var arma = GetComponent<ControladorArmaFuego>();
-        if (arma == null || arma.Municion == null) return;
-        arma.Municion.AgregarReserva(municionPendiente);
+        var rifle = arma != null ? arma.MunicionDe(ArmaFuegoDefinicion.Tipo.Rifle) : null;
+        if (rifle == null) return;
+        rifle.AgregarReserva(municionPendiente);
         municionPendiente = 0;
     }
 
     public void SumarBotiquin(int cantidad = 1) => botiquines += Mathf.Max(0, cantidad);
     public void SumarBuff(int cantidad = 1) => buffs += Mathf.Max(0, cantidad);
 
+    /// <summary>Mensaje corto que el HUD muestra junto al inventario.</summary>
+    public static string Aviso { get; private set; }
+    public static float AvisoHasta { get; private set; }
+
+    public static void Avisar(string texto, float segundos = 2f)
+    {
+        Aviso = texto;
+        AvisoHasta = Time.time + segundos;
+    }
+
     public bool UsarBotiquin()
     {
         var partida = ControladorPartidaBotellas.Instancia;
-        if (botiquines <= 0 || partida == null || partida.Vida >= .999f) return false;
+        // Antes fallaba en silencio y parecía que el botiquín no funcionaba.
+        if (botiquines <= 0) { Avisar("SIN BOTIQUINES"); return false; }
+        if (partida == null || partida.Vida >= .999f) { Avisar("VIDA LLENA"); return false; }
         botiquines--;
         partida.Curar(.3f);
+        Avisar("+30% VIDA");
         Sonido.Reproducir(BancoSonidos.Actual != null ? BancoSonidos.Actual.curar : null, transform.position, .8f, "Efectos");
         return true;
     }
 
     public bool UsarBuff()
     {
-        if (buffs <= 0 || BuffActivo) return false;
+        // La bebida también devuelve algo de vida; con el efecto ya activo solo sirve si falta vida.
+        var partida = ControladorPartidaBotellas.Instancia;
+        bool faltaVida = partida != null && partida.Vida < .999f;
+        if (buffs <= 0) { Avisar("SIN BEBIDAS"); return false; }
+        if (BuffActivo && !faltaVida) { Avisar("YA ESTÁS PRENDIDO"); return false; }
         buffs--;
-        StartCoroutine(Buff());
+        if (partida != null) partida.Curar(.15f);
+        Avisar(faltaVida ? "+15% VIDA" : "¡PRENDIDO!");
+        if (!BuffActivo) StartCoroutine(Buff());
+        else Sonido.Reproducir(BancoSonidos.Actual != null ? BancoSonidos.Actual.beber : null, transform.position, .8f, "Efectos");
         return true;
     }
 

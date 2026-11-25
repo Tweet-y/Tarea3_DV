@@ -40,6 +40,19 @@ public sealed class EstadoMunicion
         Recargando = false;
     }
 
+    /// <summary>Recarga de a un cartucho: mete uno y sigue recargando mientras quepa y quede reserva.</summary>
+    public bool CargarUno()
+    {
+        if (!Recargando) return false;
+        if (Cargador < Capacidad && Reserva > 0)
+        {
+            Cargador++;
+            Reserva--;
+        }
+        if (Cargador >= Capacidad || Reserva == 0) Recargando = false;
+        return true;
+    }
+
     public void CancelarRecarga() => Recargando = false;
 
     public int AgregarReserva(int cantidad)

@@ -124,7 +124,10 @@ public sealed class PoseRifleProcedural
     private Quaternion basePecho;
     private Quaternion orientacionSuave;
     private float peso, apuntado, carrera, velocidad, ciclo, retroceso;
-    private float alturaFiltrada, velocidadAltura, pesoEstabilizacion;
+    private float alturaFiltrada, velocidadAltura, pesoEstabilizacion, recargaSuave;
+
+    /// <summary>Corrimiento de la mano izquierda en el espacio del arma (la corredera al bombear).</summary>
+    public Vector3 DesplazamientoIzquierdo { get; set; }
     private bool alturaInicializada;
     private bool aplicada;
 
@@ -175,7 +178,10 @@ public sealed class PoseRifleProcedural
         Vector3 soporte = datos.posicionEnCuerpo + new Vector3(-.025f * apuntado,
             .10f * apuntado - .12f * carrera + respiracion, .015f * apuntado);
         soporte.y -= .16f * (1f - Mathf.SmoothStep(0f, 1f, peso));
-        float recarga = recargando ? Ventana(progresoRecarga, 0f, .15f) * (1f - Ventana(progresoRecarga, .85f, 1f)) : 0f;
+        // Con cargador el giro sigue la recarga completa; cartucho a cartucho el arma queda ladeada mientras dure.
+        recargaSuave = Mathf.MoveTowards(recargaSuave, recargando ? 1f : 0f, dt * 5f);
+        float recarga = cargador == null ? Mathf.SmoothStep(0f, 1f, recargaSuave) :
+            recargando ? Ventana(progresoRecarga, 0f, .15f) * (1f - Ventana(progresoRecarga, .85f, 1f)) : 0f;
         modelo.position = cuerpo.TransformPoint(soporte) - orientacion * Vector3.forward * (retroceso * .045f);
         modelo.rotation = orientacion * Quaternion.Euler(7f * (1f - apuntado) + 24f * carrera - retroceso * 3f,
             -10f * recarga, -23f * recarga);
@@ -216,7 +222,13 @@ public sealed class PoseRifleProcedural
             izquierdo.AjustarAlturaAlcance(modelo, datos.agarreIzquierdo, false);
         }
         EstabilizarCaminata(recargando, dt);
-        Vector3 manoIzquierda = modelo.TransformPoint(datos.agarreIzquierdo);
+        Vector3 manoIzquierda = modelo.TransformPoint(datos.agarreIzquierdo + DesplazamientoIzquierdo);
+        if (cargador == null && recargando && datos.puertoCarga != Vector3.zero)
+        {
+            // Cada cartucho: la mano baja al puerto de carga, lo empuja y vuelve a la corredera.
+            float meter = Ventana(progresoRecarga, .05f, .4f) * (1f - Ventana(progresoRecarga, .6f, .95f));
+            manoIzquierda = Vector3.Lerp(manoIzquierda, modelo.TransformPoint(datos.puertoCarga), meter);
+        }
         if (cargador != null)
         {
             float retirar = recargando ? Ventana(progresoRecarga, .18f, .4f) * (1f - Ventana(progresoRecarga, .55f, .8f)) : 0f;

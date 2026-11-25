@@ -41,6 +41,39 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
     private bool cursorEstabaBloqueado, miradaEstabaActiva;
     private float escalaAntesDePausa = 1f;
 
+    /// <summary>Altura del pie de cada botella sobre el suelo; flota ±0,35 m alrededor de ella.</summary>
+    public const float AlturaBotella = .55f;
+
+    /// <summary>
+    /// Botellas objetivo de la isla (19 en el mapa + la que suelta el jefe). Solo se usa donde la
+    /// escena aún no está cargada (menú) o para validarla; en juego manda el conteo real.
+    /// </summary>
+    public const int BotellasIsla = 20;
+
+    /// <summary>Total de botellas de la partida en curso, o el de la isla si todavía no hay partida.</summary>
+    public static int TotalBotellas => Instancia != null && Instancia.Total > 0 ? Instancia.Total : BotellasIsla;
+
+    /// <summary>El total en palabras para los diálogos ("veinte"). Con mayúscula inicial si se pide.</summary>
+    public static string TotalEnPalabras(bool mayuscula = false)
+    {
+        string texto = EnPalabras(TotalBotellas);
+        return mayuscula && texto.Length > 0 ? char.ToUpper(texto[0]) + texto.Substring(1) : texto;
+    }
+
+    static string EnPalabras(int n)
+    {
+        string[] hasta29 =
+        {
+            "cero", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve",
+            "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete", "dieciocho", "diecinueve",
+            "veinte", "veintiuna", "veintidós", "veintitrés", "veinticuatro", "veinticinco", "veintiséis", "veintisiete", "veintiocho", "veintinueve",
+        };
+        string[] decenas = { "", "", "", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa" };
+        if (n < 0 || n > 99) return n.ToString();
+        if (n < 30) return hasta29[n];
+        return n % 10 == 0 ? decenas[n / 10] : decenas[n / 10] + " y " + hasta29[n % 10];
+    }
+
     public int Total => total;
     public int Recogidas => cantidadRecogidas;
     public int Puntos => puntosAcumulados;
@@ -86,6 +119,7 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
             botellasDelMapa.AddRange(raiz.GetComponentsInChildren<ObjetoEspecialColeccionable>(true));
         botellas = botellasDelMapa.FindAll(b => b.tipo == ObjetoEspecialColeccionable.TipoBotella.Objetivo).ToArray();
         total = botellas.Length;
+        if (ModoIsla) AsentarBotellas();
         CrearBotellasCurativas();
 
         var jugador = GameObject.FindGameObjectWithTag("Player");
@@ -222,6 +256,27 @@ public sealed class ControladorPartidaBotellas : MonoBehaviour
 
         EstadoActualizado?.Invoke();
         BotellaRecogida?.Invoke();
+    }
+
+    /// <summary>
+    /// Deja cada botella justo sobre el suelo que tiene debajo. El rayo parte apenas por encima de la
+    /// botella, así que nunca la sube a un techo: solo corrige la altura de colocación.
+    /// </summary>
+    private void AsentarBotellas()
+    {
+        foreach (var botella in botellas)
+        {
+            if (botella == null || botella.GetComponentInParent<PortadorBotella>(true) != null) continue;
+            Vector3 p = botella.transform.position;
+            float menor = float.PositiveInfinity;
+            foreach (var hit in Physics.RaycastAll(p + Vector3.up * 1.2f, Vector3.down, 6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                if (hit.collider.transform.IsChildOf(botella.transform) || hit.normal.y < .6f || hit.distance >= menor) continue;
+                menor = hit.distance;
+                p.y = hit.point.y + AlturaBotella;
+            }
+            botella.transform.position = p;
+        }
     }
 
     private void CrearBotellasCurativas()

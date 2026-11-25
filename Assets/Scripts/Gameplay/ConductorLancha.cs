@@ -30,6 +30,7 @@ public sealed class ConductorLancha : MonoBehaviour
     void Configurar(Transform barco)
     {
         lancha = barco;
+        SonidoLancha.Instalar(lancha);
         volante = null;
         foreach (var t in lancha.GetComponentsInChildren<Transform>(true))
             if (t.name.IndexOf("SteeringW", System.StringComparison.OrdinalIgnoreCase) >= 0 ||

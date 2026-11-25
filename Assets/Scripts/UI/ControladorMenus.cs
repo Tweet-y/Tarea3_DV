@@ -86,7 +86,7 @@ public sealed class ControladorMenus : MonoBehaviour
         var titulo = Titulo("TituloPixel", $"SUPER CURAO\n<size=125%><color={EstiloUI.HexRosa}>MAN</color></size>",
             new Vector2(.06f, .56f), new Vector2(.62f, .95f), 118);
         titulo.lineSpacing = -28;
-        var lema = TextoAnclado(transform, "Lema", "LA ISLA TIENE 30 BOTELLAS. TÚ TIENES SED.",
+        var lema = TextoAnclado(transform, "Lema", $"LA ISLA TIENE {ControladorPartidaBotellas.BotellasIsla} BOTELLAS. TÚ TIENES SED.",
             new Vector2(.07f, .50f), new Vector2(560, 28), 20, EstiloUI.Rosa);
         lema.characterSpacing = 6;
         var contenido = Rect(transform, "BotonesCentrados", new Vector2(.07f, .29f), new Vector2(.07f, .29f));

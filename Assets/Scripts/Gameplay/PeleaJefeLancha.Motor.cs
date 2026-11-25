@@ -116,7 +116,7 @@ public sealed partial class PeleaJefeLancha
     {
         motorApagado = true;
         Mensaje("¡SE APAGÓ EL MOTOR!", 2f);
-        Decir("¡Chucha, se apagó el motor! ¡Ayúdame a hacerlo partir, weón!");
+        Decir("¡Chucha, se apagó el motor! ¡Ayúdame a echarlo a andar, weón!", "cj_motor_apagado");
         EfectosPelea.Explosion(lancha.position - lancha.forward * 2.5f + Vector3.up, .6f, false);
         Sonido.Reproducir(BancoSonidos.Actual != null ? BancoSonidos.Actual.impacto : null, lancha.position, 1f, "Efectos");
         sacudida = Mathf.Max(sacudida, .8f);
@@ -138,7 +138,8 @@ public sealed partial class PeleaJefeLancha
             else if (!PeleaInterrumpida())
             {
                 Mensaje("¡EL MOTOR NO PARTE!", 1.5f);
-                Decir(Random.value < .5f ? "¡Noo, weón! ¡Otra vez!" : "¡Puta la wea, no parte! ¡Inténtalo de nuevo!");
+                if (Random.value < .35f) Decir("¡Noo, weón! ¡Otra vez!");
+                else Decir("¡Puta la wea, no parte! ¡Inténtalo de nuevo!", "cj_no_parte");
                 // Mientras tanto Nemesis sigue tirando cosas a la lancha detenida.
                 yield return Esperar(3f);
             }
@@ -147,7 +148,7 @@ public sealed partial class PeleaJefeLancha
         motorApagado = false;
         if (PeleaInterrumpida()) yield break;
         Mensaje("¡PARTIÓ EL MOTOR!", 1.5f);
-        Decir("¡Partió, weón! ¡Vámonos!");
+        Decir("¡Partió, weón! ¡Vámonos!", "cj_partio");
         proximoQte = tCombate + Random.Range(24f, 30f);
         proximoPisoton = Mathf.Max(proximoPisoton, tCombate + 4f);
     }

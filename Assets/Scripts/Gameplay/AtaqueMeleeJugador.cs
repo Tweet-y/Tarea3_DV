@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>Bate: clic izquierdo o RT cuando está seleccionado.</summary>
+/// <summary>Bate: clic izquierdo o RT cuando está seleccionado. Con PoseBateProcedural es un swing a dos manos.</summary>
 [DisallowMultipleComponent]
 public class AtaqueMeleeJugador : MonoBehaviour
 {
@@ -10,6 +10,8 @@ public class AtaqueMeleeJugador : MonoBehaviour
     public float esperaGolpe = 0.15f;
     public float duracionGolpe = 0.28f;
     public float cadencia = 0.55f;
+    [Tooltip("Duración del swing pesado a dos manos.")]
+    public float duracionSwing = .85f;
     public AudioClip swoosh;
 
     InputAction atacar;
@@ -49,6 +51,27 @@ public class AtaqueMeleeJugador : MonoBehaviour
     IEnumerator Swing()
     {
         golpeando = true;
+        var pose = GetComponent<PoseBateProcedural>();
+        if (pose != null && pose.enabled)
+        {
+            // Swing pesado: la pose mueve el bate; el clip de ataque no, porque lo hacía pasar por la cabeza.
+            proximo = Time.time + Mathf.Max(cadencia, duracionSwing + .1f);
+            if (animador != null)
+            {
+                int capaCombate = animador.GetLayerIndex("Combate");
+                if (capaCombate >= 0) animador.SetLayerWeight(capaCombate, 0f);
+            }
+            pose.Golpe(duracionSwing);
+            yield return new WaitForSeconds(duracionSwing * .25f);
+            Sonido.Reproducir(swoosh != null ? swoosh : BancoSonidos.Actual != null ? BancoSonidos.Actual.swoosh : null, transform.position, .8f, "Efectos", .8f);
+            yield return new WaitForSeconds(duracionSwing * (PoseBateProcedural.MomentoImpacto - .25f));
+            if (golpe != null) golpe.Golpear();
+            yield return new WaitForSeconds(duracionSwing * .16f);
+            if (golpe != null) golpe.FinGolpe();
+            yield return new WaitForSeconds(duracionSwing * (1f - PoseBateProcedural.MomentoImpacto - .16f));
+            golpeando = false;
+            yield break;
+        }
         proximo = Time.time + cadencia;
         if (animador != null)
         {

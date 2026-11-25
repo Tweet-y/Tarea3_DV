@@ -317,7 +317,7 @@ public sealed partial class PeleaJefeLancha
             }
         }, PeleaInterrumpida);
         if (!lanzada && roca != null && !PeleaInterrumpida()) Soltar(roca);
-        if (comentar && Random.value < .35f && modelo != null) Decir(Frase(modelo.name));
+        if (comentar && Random.value < .35f && modelo != null) Decir(Frase(modelo.name), VozFrase(modelo.name));
 
         // 5) Recuperar la postura.
         yield return Tween(.55f, k =>
@@ -484,7 +484,7 @@ public sealed partial class PeleaJefeLancha
                     if (exito)
                     {
                         Mensaje("¡ESQUIVADA!", 1.5f);
-                        Decir("¡Afírmate, weón!");
+                        Decir("¡Afírmate, weón!", "cj_afirmate");
                         StartCoroutine(Esquivar(izquierda ? -1f : 1f));
                     }
                     else Mensaje("¡PARA EL OTRO LADO!", 1.2f);
@@ -527,7 +527,7 @@ public sealed partial class PeleaJefeLancha
         Vector3 mD = animador != null ? animador.Mano(true) : hD, mI = animador != null ? animador.Mano(false) : hI;
         Vector3 agarre = GeografiaIsla.Suelo(t.position + frente * altura * .25f, altura * .4f);
         Mensaje("¡NEMESIS ARRANCA ALGO ENORME!", 2f);
-        Decir("¡¿Qué es ESA WEA?! ¡Dale con todo a la punto cincuenta!");
+        Decir("¡¿Qué es esa wea?! ¡Dale duro con la punto cincuenta!", "cj_que_es_esa");
 
         yield return Tween(.6f, k =>
         {
@@ -611,7 +611,7 @@ public sealed partial class PeleaJefeLancha
             Sonido.Reproducir(BancoSonidos.Actual != null ? BancoSonidos.Actual.explosion : null, p, 1f, "Efectos");
             sacudida = 1.6f;
             Mensaje("¡SE LO REVENTASTE ENCIMA!", 2f);
-            Decir("¡JAJA! ¡Toma, weón! ¡Eso le dolió!");
+            Decir("¡JAJAJA! ¡Toma esa, wea!", "cj_toma_esa");
             nemesis.RecibirDanio(320f, p, -frente);
             yield return Aturdido();
         }

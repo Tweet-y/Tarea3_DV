@@ -90,7 +90,7 @@ public static class ValidarIsla
                 Sonido.AplicarEscena();
                 int botellas = UnityEngine.Object.FindObjectsByType<ObjetoEspecialColeccionable>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                     .Count(b => b.tipo == ObjetoEspecialColeccionable.TipoBotella.Objetivo);
-                Exigir(botellas == 30, "Hay 30 botellas objetivo (" + botellas + ").");
+                Exigir(botellas == ControladorPartidaBotellas.BotellasIsla, "Hay " + ControladorPartidaBotellas.BotellasIsla + " botellas objetivo (" + botellas + ").");
                 int armaEnemigo = LayerMask.NameToLayer(CapasJuego.ArmaEnemigo);
                 int enemigos = LayerMask.NameToLayer(CapasJuego.Enemigos);
                 int jugadorCapa = LayerMask.NameToLayer(CapasJuego.Jugador);
@@ -161,7 +161,7 @@ public static class ValidarIsla
                 foreach (var botella in UnityEngine.Object.FindObjectsByType<ObjetoEspecialColeccionable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                     if (botella.tipo == ObjetoEspecialColeccionable.TipoBotella.Objetivo && !botella.YaRecogido)
                         botella.Recoger(jugador);
-                Exigir(FinalIsla.FuegosEncendidos && partida.Recogidas >= 30, "La botella 30 enciende los fuegos artificiales.");
+                Exigir(FinalIsla.FuegosEncendidos && partida.Recogidas >= partida.Total, "La última botella enciende los fuegos artificiales.");
                 ControladorDialogo.Saltar = true;
                 FinalIsla.Instancia.EntrarAlBote();
                 desde = EditorApplication.timeSinceStartup;

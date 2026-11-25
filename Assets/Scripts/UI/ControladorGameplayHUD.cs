@@ -14,6 +14,12 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
     private RectTransform vidaJefeFill;
     private TMP_Text municion, nombreArma;
     private GameObject imagenBotella, imagenArma, marcoRecarga;
+    private IconoArmaGraphic iconoArma;
+    private FormaUIGraphic fondoArma;
+    private Image destelloArma;
+    private InventarioJugador.Arma? armaMostrada;
+    private float cambioArma = -10f;
+    private float proximoInventario;
     private RectTransform rellenoRecarga;
     private float objetivoEbriedad, objetivoVida = 1f, visualEbriedad, visualVida = 1f;
     private float tiempoPickup, duracionPickup = .45f;
@@ -100,14 +106,21 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         root.pivot = new Vector2(1, 1);
         icono = Nodo(root, "BottleIcon", new Vector2(0, 1), Vector2.zero, new Vector2(88, 84));
         Forma(icono, "BlackFrame", new Vector2(-6, 0), new Vector2(88, 84), Color.black, 12);
-        Forma(icono, "WhiteInset", new Vector2(-1, -5), new Vector2(78, 74), new Color32(64, 40, 96, 255), 10, new Color32(150, 72, 132, 255));
+        fondoArma = Forma(icono, "WhiteInset", new Vector2(-1, -5), new Vector2(78, 74), new Color32(64, 40, 96, 255), 10, new Color32(150, 72, 132, 255))
+            .GetComponent<FormaUIGraphic>();
         var botella = Nodo(icono, "BeerSilhouette", new Vector2(0, 1), new Vector2(13, -5), new Vector2(62, 74));
         botella.gameObject.AddComponent<BottleHudGraphic>().raycastTarget = false;
         imagenBotella = botella.gameObject;
         var rifle = Nodo(icono, "MiniaturaArma", new Vector2(0, 1), new Vector2(5, -2), new Vector2(78, 80));
-        rifle.gameObject.AddComponent<IconoRifleGraphic>().raycastTarget = false;
+        iconoArma = rifle.gameObject.AddComponent<IconoArmaGraphic>();
+        iconoArma.raycastTarget = false;
         imagenArma = rifle.gameObject;
         imagenArma.SetActive(false);
+        // Destello blanco que tapa el recuadro un instante al cambiar de arma.
+        var destello = Nodo(icono, "DestelloCambio", new Vector2(0, 1), new Vector2(-1, -5), new Vector2(78, 74));
+        destelloArma = destello.gameObject.AddComponent<Image>();
+        destelloArma.color = new Color(1f, 1f, 1f, 0f);
+        destelloArma.raycastTarget = false;
 
         municion = Texto(root, "MunicionArma", "--", new Vector2(100, 0), new Vector2(200, 46), 38, Color.white);
         nombreArma = Texto(root, "NombreArma", "SIN ARMA", new Vector2(100, -48), new Vector2(200, 24), 18, EstiloUI.Oro);
@@ -130,13 +143,13 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         indicadorAyuda = Texto(transform, "AtajoIndicaciones", "", new Vector2(24, -22), new Vector2(450, 28), 16, EstiloUI.Oro);
         indicadorAyuda.alignment = TextAlignmentOptions.Left;
         objetivoInicial = Nodo(transform, "ObjetivoInicial", new Vector2(0, 1),
-            new Vector2(24, -66), new Vector2(430, 268));
+            new Vector2(24, -66), new Vector2(450, 290));
         var fondoObjetivo = objetivoInicial.gameObject.AddComponent<Image>();
         fondoObjetivo.color = new Color(.05f, .03f, .1f, .82f);
         fondoObjetivo.raycastTarget = false;
-        Caja(objetivoInicial, "Filo", Vector2.zero, new Vector2(5, 268), EstiloUI.Oro);
+        Caja(objetivoInicial, "Filo", Vector2.zero, new Vector2(5, 290), EstiloUI.Oro);
         var objetivo = Texto(objetivoInicial, "TextoObjetivo",
-            $"<color={EstiloUI.HexOro}>OBJETIVO</color>\nConsigue las 30 botellas de la isla.\nLuego ve a muelle_final con CJ.\n\n<color={EstiloUI.HexOro}>CONTROLES</color>\nWASD: mover · Espacio: saltar · Shift: correr\n1 bate · 2 rifle · Clic izq.: golpear o disparar\nQ botiquín · F bebida · E recoger · Esc pausa",
+            $"<color={EstiloUI.HexOro}>OBJETIVO</color>\nConsigue las {partida.Total} botellas de la isla.\nCon {ControladorArmaFuego.BotellasEscopeta} recibes una escopeta.\nLuego ve a muelle_final con CJ.\n\n<color={EstiloUI.HexOro}>CONTROLES</color>\nWASD: mover · Espacio: saltar · Shift: correr\n1 bate · 2 rifle · 3 escopeta · Clic izq.: golpear o disparar\nQ botiquín · F bebida · E recoger · Esc pausa",
             Vector2.zero, Vector2.zero, 18, Color.white, EstiloUI.Fuente.Cuerpo);
         objetivo.fontStyle = FontStyles.Bold;
         objetivo.rectTransform.anchorMin = Vector2.zero;
@@ -227,6 +240,12 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         bool jugando = partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso;
         if (armaJugador == null) armaJugador = FindFirstObjectByType<ControladorArmaFuego>();
         ActualizarEquipo();
+        // El inventario cambia al elegir arma o recoger una, no solo con los eventos de la partida.
+        if (Time.unscaledTime >= proximoInventario)
+        {
+            proximoInventario = Time.unscaledTime + .15f;
+            ActualizarInventario();
+        }
         // Ocultar solo la presentacion: la exploracion del radar sigue funcionando al caminar apuntando.
         if (visibilidadMapa != null)
             visibilidadMapa.alpha = jugando && !(armaJugador != null && armaJugador.SolicitaApuntar) ? 1f : 0f;
@@ -265,16 +284,56 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
 
     private void ActualizarEquipo()
     {
-        bool equipada = armaJugador != null && armaJugador.Equipada && armaJugador.Municion != null;
-        imagenBotella.SetActive(!equipada);
-        imagenArma.SetActive(equipada);
-        var balas = equipada ? armaJugador.Municion : null;
-        municion.text = equipada ? $"{balas.Cargador:00} - {balas.Reserva:000}" : "--";
-        municion.color = equipada && balas.Cargador == 0 ? EstiloUI.Rojo : Color.white;
-        nombreArma.text = !equipada ? (InventarioJugador.Instancia != null && InventarioJugador.Instancia.armaActiva == InventarioJugador.Arma.Bate ? "BATE" : "SIN ARMA") : balas.Recargando ? $"RECARGANDO {armaJugador.RecargaRestante:0.0}s" : "RIFLE DE ASALTO";
-        marcoRecarga.SetActive(equipada && balas.Recargando);
-        if (equipada && balas.Recargando)
-            rellenoRecarga.localScale = new Vector3(Mathf.Clamp01(1 - armaJugador.RecargaRestante / Mathf.Max(.1f, armaJugador.Definicion.segundosRecarga)), 1, 1);
+        var inventario = InventarioJugador.Instancia;
+        var arma = inventario != null ? inventario.armaActiva : InventarioJugador.Arma.Bate;
+        bool fuego = armaJugador != null && armaJugador.Equipada && armaJugador.Municion != null;
+        if (!fuego && arma != InventarioJugador.Arma.Bate) arma = InventarioJugador.Arma.Bate;
+        if (armaMostrada != arma)
+        {
+            // Primer cuadro sin animación; después cada cambio rebota y destella.
+            if (armaMostrada.HasValue) cambioArma = Time.unscaledTime;
+            armaMostrada = arma;
+            iconoArma.Actual = arma == InventarioJugador.Arma.Escopeta ? IconoArmaGraphic.Forma.Escopeta :
+                arma == InventarioJugador.Arma.Rifle ? IconoArmaGraphic.Forma.Rifle : IconoArmaGraphic.Forma.Bate;
+            // Cada arma tiñe su recuadro: bate madera, rifle violeta, escopeta rojo sangre.
+            Color abajo, arriba;
+            if (arma == InventarioJugador.Arma.Bate) { abajo = new Color32(78, 46, 22, 255); arriba = new Color32(170, 110, 52, 255); }
+            else if (arma == InventarioJugador.Arma.Escopeta) { abajo = new Color32(84, 18, 22, 255); arriba = new Color32(190, 52, 46, 255); }
+            else { abajo = new Color32(64, 40, 96, 255); arriba = new Color32(150, 72, 132, 255); }
+            fondoArma.color = abajo;
+            fondoArma.ColorB = arriba;
+            fondoArma.SetVerticesDirty();
+        }
+        imagenBotella.SetActive(false);
+        imagenArma.SetActive(true);
+        float desde = Time.unscaledTime - cambioArma;
+        float rebote = desde < .35f ? 1f + .28f * Mathf.Sin(desde / .35f * Mathf.PI) * (1f - desde / .35f) : 1f;
+        icono.localScale = Vector3.one * rebote;
+        iconoArma.rectTransform.localRotation = Quaternion.Euler(0, 0, desde < .35f ? 12f * (1f - desde / .35f) : 0f);
+        destelloArma.color = new Color(1f, 1f, 1f, desde < .25f ? .85f * (1f - desde / .25f) : 0f);
+        nombreArma.rectTransform.localScale = Vector3.one * (desde < .3f ? 1f + .25f * (1f - desde / .3f) : 1f);
+
+        if (!fuego)
+        {
+            municion.text = "--";
+            municion.color = Color.white;
+            nombreArma.text = "BATE";
+            marcoRecarga.SetActive(false);
+            return;
+        }
+        var balas = armaJugador.Municion;
+        municion.text = $"{balas.Cargador:00} - {balas.Reserva:000}";
+        municion.color = balas.Cargador == 0 ? EstiloUI.Rojo : Color.white;
+        nombreArma.text = balas.Recargando ? $"RECARGANDO {armaJugador.RecargaRestante:0.0}s" : armaJugador.Definicion.nombre;
+        marcoRecarga.SetActive(balas.Recargando);
+        if (balas.Recargando)
+        {
+            // Escopeta: la barra se llena cartucho a cartucho.
+            float progreso = armaJugador.Definicion.recargaPorCartucho
+                ? (float)balas.Cargador / Mathf.Max(1, balas.Capacidad)
+                : 1 - armaJugador.RecargaRestante / Mathf.Max(.1f, armaJugador.Definicion.segundosRecarga);
+            rellenoRecarga.localScale = new Vector3(Mathf.Clamp01(progreso), 1, 1);
+        }
     }
 
     void ActualizarInventario()
@@ -290,10 +349,14 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         if (inventario == null) { inventarioHud.text = ""; return; }
         string activo = EstiloUI.HexOro;
         string apagado = "#" + ColorUtility.ToHtmlStringRGB(EstiloUI.Gris);
-        bool bate = inventario.armaActiva == InventarioJugador.Arma.Bate;
-        string armas = $"<color={(bate ? activo : apagado)}>[1] BATE</color>  <color={(!bate ? activo : apagado)}>[2] RIFLE</color>";
+        // Arma activa en oro, las que se tienen en blanco y las que faltan apagadas.
+        string Ranura(InventarioJugador.Arma arma, string texto) =>
+            $"<color={(inventario.armaActiva == arma ? activo : inventario.Tiene(arma) ? "#FFFFFF" : apagado)}>{texto}</color>";
+        string armas = $"{Ranura(InventarioJugador.Arma.Bate, "[1] BATE")}  {Ranura(InventarioJugador.Arma.Rifle, "[2] RIFLE")}  " +
+            Ranura(InventarioJugador.Arma.Escopeta, "[3] ESCOPETA");
         inventarioHud.text = $"{armas}    BOTIQUÍN x{inventario.botiquines} [Q]    BEBIDA x{inventario.buffs} [F]" +
-            (inventario.BuffActivo ? $"    <color={EstiloUI.HexRosa}>¡PRENDIDO!</color>" : "");
+            (inventario.BuffActivo ? $"    <color={EstiloUI.HexRosa}>¡PRENDIDO!</color>" : "") +
+            (Time.time < InventarioJugador.AvisoHasta ? $"    <color={EstiloUI.HexOro}>{InventarioJugador.Aviso}</color>" : "");
     }
 
     void ActualizarJefe()

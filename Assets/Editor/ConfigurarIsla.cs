@@ -97,7 +97,8 @@ public static class ConfigurarIsla
         Vector3 lejos = MasLejos(puntos, spawn);
         Vector3 extraccion = MasLejos(puntos, spawn, lejos, 18f);
         Vector3 arena = MasLejos(puntos, extraccion, spawn, 12f);
-        ColocarBotellas(raiz.transform, puntos, spawn, 29);
+        // Una menos: la última la suelta el jefe.
+        ColocarBotellas(raiz.transform, puntos, spawn, ControladorPartidaBotellas.BotellasIsla - 1);
         ColocarCajas(raiz.transform, puntos, spawn);
         ColocarZombies(raiz.transform, prefabsZ, puntos, spawn);
         var jefeGo = (GameObject)PrefabUtility.InstantiatePrefab(jefe);
