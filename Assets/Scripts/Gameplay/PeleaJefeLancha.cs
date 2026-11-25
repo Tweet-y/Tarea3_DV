@@ -751,7 +751,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         Vector3 cabezaCJ = (cj != null ? cj.position : lancha.position) + Vector3.up * 1.55f;
         Vector3 frenteCJ = cj != null ? cj.forward : lancha.forward;
         Vector3 ladoCJ = cj != null ? cj.right : lancha.right;
-        yield return Plano(dialogo, "CJ", "¡Chucha, se vino el grandote! Yo manejo y le damos la vuelta a la isla. ¡Tú agárrate de la punto cincuenta y revienta toda la wea que nos tire!", 4f,
+        yield return Plano(dialogo, "CJ", "¡Chucha, se vino el grandote! Yo manejo y le damos vuelta a la isla. ¡Tú agárrate de la metraca punto cincuenta y revienta toda la wea que nos tire!", 4f,
             s => (cabezaCJ + frenteCJ * 2.4f + ladoCJ * (.7f - .3f * s) + Vector3.up * .15f, cabezaCJ), 45f, "cj_pelea_inicio");
         dialogo.Cerrar();
 
@@ -832,7 +832,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         };
         bool hecho = false;
         dialogo.FijarNombre("CJ");
-        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Lo botaste, weón! " + ControladorPartidaBotellas.TotalEnPalabras(true) + " botellas y un gigante menos... ¡Ahora sí que nos vamos a curar como la gente!", 3.5f, "cj_final"), () => hecho = true));
+        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Te lo pitiaste, weón! Ahora llevémonos todo el copete a la casa y nos curamos como la gente.", 3.5f, "cj_final"), () => hecho = true));
         while (!hecho || reloj < 3f)
         {
             reloj += Time.deltaTime;
@@ -1083,12 +1083,12 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         if (faseJefe == 2)
         {
             Mensaje("¡NEMESIS ESTÁ FURIOSO!", 2.5f);
-            Decir("¡Puta, ahora tira de a dos! ¡No dejí que lleguen, weón!");
+            Decir("¡Puta, ahora está tirando de a dos! ¡No dejes que nos lleguen, weón!", "cj_de_a_dos");
         }
         else
         {
             Mensaje("¡LANZA TODO EN LLAMAS!", 2.5f);
-            Decir("¡Está más choreado que la cresta! ¡Dale en la cabeza, que ya cae!");
+            Decir("¡Está más choreado que la cresta! ¡Dale, que ya se cae!", "cj_choreado");
         }
         yield break;
     }
@@ -1107,7 +1107,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         if (nombre.Contains("Barrel") || nombre.Contains("Propane")) return "¡Ojo con ese barril, que va a reventar!";
         if (nombre.Contains("Container")) return "¡Un contenedor! ¡Este weón está más loco que una cabra!";
         if (nombre.Contains("Rock")) return "¡Piedra grande, piedra grande, weón!";
-        return "¡Está desarmando la isla entera, el desgraciado!";
+        return "¡Está desarmando la isla entera este desgraciado!";
     }
 
     Vector3 PosicionMano()
@@ -1183,11 +1183,40 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         mensajeHasta = Time.time + segundos;
     }
 
-    void Decir(string texto)
+    AudioSource vozCJ;
+
+    /// <param name="voz">Clip en Resources/Voces (sin extensión). Sin clip, la frase queda solo escrita.</param>
+    void Decir(string texto, string voz = null)
     {
         if (lineaCJ == null || Time.time < lineaHasta - 1.5f) return;
+        // No cortar a CJ a mitad de una frase grabada.
+        if (vozCJ != null && vozCJ.isPlaying) return;
         lineaCJ.text = texto;
-        lineaHasta = Time.time + 3f;
+        float duracion = 3f;
+        var clip = string.IsNullOrEmpty(voz) ? null : Resources.Load<AudioClip>("Voces/" + voz);
+        if (clip != null)
+        {
+            if (vozCJ == null)
+            {
+                vozCJ = gameObject.AddComponent<AudioSource>();
+                vozCJ.playOnAwake = false;
+                vozCJ.spatialBlend = 0f;
+                Sonido.Asignar(vozCJ, "Voces");
+            }
+            vozCJ.clip = clip;
+            vozCJ.Play();
+            duracion = Mathf.Max(duracion, clip.length + .4f);
+        }
+        lineaHasta = Time.time + duracion;
+    }
+
+    /// <summary>Voz grabada que acompaña a Frase(), si existe para ese objeto.</summary>
+    static string VozFrase(string nombre)
+    {
+        if (nombre.Contains("Veh_")) return "cj_auto";
+        if (nombre.Contains("Tank") || nombre.Contains("Portaloo") || nombre.Contains("Barrel") || nombre.Contains("Propane")
+            || nombre.Contains("Container") || nombre.Contains("Rock")) return null;
+        return "cj_desarmando";
     }
 
     void CrearHUD()

@@ -14,7 +14,7 @@ public sealed class IntroduccionIsla : MonoBehaviour
     {
         ("¡Ya po, weón! Hoy nos vamos a curar como corresponde.", "cj_intro_1"),
         ("Anda a buscar todo el copete que haya en esta isla: son {botellas} botellas. Yo te espero en el muelle, ¿cachai?", "cj_intro_2"),
-        ("Y ojo, que la isla está llena de zombies. Si se ponen pesados, el bate los calma al tiro.", "cj_intro_3"),
+        ("Ten ojo, porque la isla está llena de zombies. Si se ponen pesados, el bate los calma al tiro.", "cj_intro_3"),
     };
     private static IntroduccionIsla instancia;
     public static bool Extra { get; set; }
