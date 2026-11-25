@@ -13,7 +13,7 @@ public sealed class IntroduccionIsla : MonoBehaviour
     public static readonly (string texto, string voz)[] Dialogo =
     {
         ("¡Ya po, weón! Hoy nos vamos a curar como corresponde.", "cj_intro_1"),
-        ("Anda a buscar todo el copete que haya en esta isla: son treinta botellas. Yo te espero en el muelle, ¿cachai?", "cj_intro_2"),
+        ("Anda a buscar todo el copete que haya en esta isla: son {botellas} botellas. Yo te espero en el muelle, ¿cachai?", "cj_intro_2"),
         ("Y ojo, que la isla está llena de zombies. Si se ponen pesados, el bate los calma al tiro.", "cj_intro_3"),
     };
     private static IntroduccionIsla instancia;
@@ -112,6 +112,7 @@ public sealed class IntroduccionIsla : MonoBehaviour
                 Suspender(enemigo.GetComponent<NavMeshAgent>());
                 Suspender(enemigo);
             }
+            SonidoLancha.Instalar(lancha);
             cj.SetParent(lancha, true);
             dialogo = ControladorDialogo.Crear(true);
             // Dejar que Cinemachine y los inicializadores de la escena terminen su primer frame.
@@ -136,7 +137,7 @@ public sealed class IntroduccionIsla : MonoBehaviour
             dialogo.Negro.color = Color.clear;
             dialogo.FijarNombre("CJ");
             foreach (var (texto, voz) in Dialogo)
-                yield return dialogo.StartCoroutine(dialogo.Revelar(texto, segundosLectura, voz));
+                yield return dialogo.StartCoroutine(dialogo.Revelar(texto.Replace("{botellas}", ControladorPartidaBotellas.TotalEnPalabras()), segundosLectura, voz));
             dialogo.Ocultar();
             Vector3 salida = Vector3.ProjectOnPlane(lancha.position - jugador.transform.position, Vector3.up).normalized;
             if (salida.sqrMagnitude < .1f) salida = lancha.forward;

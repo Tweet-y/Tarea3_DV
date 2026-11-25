@@ -355,7 +355,8 @@ public sealed class ControladorGameplayHUD : MonoBehaviour
         string armas = $"{Ranura(InventarioJugador.Arma.Bate, "[1] BATE")}  {Ranura(InventarioJugador.Arma.Rifle, "[2] RIFLE")}  " +
             Ranura(InventarioJugador.Arma.Escopeta, "[3] ESCOPETA");
         inventarioHud.text = $"{armas}    BOTIQUÍN x{inventario.botiquines} [Q]    BEBIDA x{inventario.buffs} [F]" +
-            (inventario.BuffActivo ? $"    <color={EstiloUI.HexRosa}>¡PRENDIDO!</color>" : "");
+            (inventario.BuffActivo ? $"    <color={EstiloUI.HexRosa}>¡PRENDIDO!</color>" : "") +
+            (Time.time < InventarioJugador.AvisoHasta ? $"    <color={EstiloUI.HexOro}>{InventarioJugador.Aviso}</color>" : "");
     }
 
     void ActualizarJefe()

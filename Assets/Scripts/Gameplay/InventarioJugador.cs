@@ -209,21 +209,41 @@ public class InventarioJugador : MonoBehaviour
     public void SumarBotiquin(int cantidad = 1) => botiquines += Mathf.Max(0, cantidad);
     public void SumarBuff(int cantidad = 1) => buffs += Mathf.Max(0, cantidad);
 
+    /// <summary>Mensaje corto que el HUD muestra junto al inventario.</summary>
+    public static string Aviso { get; private set; }
+    public static float AvisoHasta { get; private set; }
+
+    public static void Avisar(string texto, float segundos = 2f)
+    {
+        Aviso = texto;
+        AvisoHasta = Time.time + segundos;
+    }
+
     public bool UsarBotiquin()
     {
         var partida = ControladorPartidaBotellas.Instancia;
-        if (botiquines <= 0 || partida == null || partida.Vida >= .999f) return false;
+        // Antes fallaba en silencio y parecía que el botiquín no funcionaba.
+        if (botiquines <= 0) { Avisar("SIN BOTIQUINES"); return false; }
+        if (partida == null || partida.Vida >= .999f) { Avisar("VIDA LLENA"); return false; }
         botiquines--;
         partida.Curar(.3f);
+        Avisar("+30% VIDA");
         Sonido.Reproducir(BancoSonidos.Actual != null ? BancoSonidos.Actual.curar : null, transform.position, .8f, "Efectos");
         return true;
     }
 
     public bool UsarBuff()
     {
-        if (buffs <= 0 || BuffActivo) return false;
+        // La bebida también devuelve algo de vida; con el efecto ya activo solo sirve si falta vida.
+        var partida = ControladorPartidaBotellas.Instancia;
+        bool faltaVida = partida != null && partida.Vida < .999f;
+        if (buffs <= 0) { Avisar("SIN BEBIDAS"); return false; }
+        if (BuffActivo && !faltaVida) { Avisar("YA ESTÁS PRENDIDO"); return false; }
         buffs--;
-        StartCoroutine(Buff());
+        if (partida != null) partida.Curar(.15f);
+        Avisar(faltaVida ? "+15% VIDA" : "¡PRENDIDO!");
+        if (!BuffActivo) StartCoroutine(Buff());
+        else Sonido.Reproducir(BancoSonidos.Actual != null ? BancoSonidos.Actual.beber : null, transform.position, .8f, "Efectos");
         return true;
     }
 

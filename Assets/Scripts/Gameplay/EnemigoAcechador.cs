@@ -459,6 +459,8 @@ public class EnemigoAcechador : MonoBehaviour
     {
         Atacando = true;
         if (animator != null && TieneParametro("Atacar")) animator.SetTrigger("Atacar");
+        var voz = GetComponent<SonidoZombie>();
+        if (voz != null) voz.Ataque();
         Sonido.Reproducir(sonidoAtaque != null ? sonidoAtaque : BancoSonidos.Actual != null ? BancoSonidos.Actual.swoosh : null, transform.position, .7f, "Efectos");
         embistiendo = modoHorda;
         golpeAbierto = false;

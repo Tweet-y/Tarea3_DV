@@ -44,6 +44,8 @@ public static class SistemaArmasFuego
             Vector3 punto = botellas[i].transform.position + Vector3.right;
             RecogibleArmaFuego.Crear(datos, BuscarSuelo(punto, jugador.transform), soloMunicion: true);
         }
+        // Botiquines y bebidas para recuperar vida durante el recorrido.
+        RecogibleItem.RepartirEnIsla(jugador.transform);
         foreach (var enemigo in Object.FindObjectsByType<EnemigoAcechador>(FindObjectsSortMode.None))
         {
             var vida = enemigo.GetComponent<ControladorVida>();

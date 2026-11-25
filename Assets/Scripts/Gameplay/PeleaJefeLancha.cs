@@ -273,6 +273,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
             return;
         }
         lancha = final.lancha;
+        SonidoLancha.Instalar(lancha);
         cj = final.cj;
         StartCoroutine(Secuencia());
     }
@@ -831,7 +832,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         };
         bool hecho = false;
         dialogo.FijarNombre("CJ");
-        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Lo botaste, weón! Treinta botellas y un gigante menos... ¡Ahora sí que nos vamos a curar como la gente!", 3.5f, "cj_final"), () => hecho = true));
+        dialogo.StartCoroutine(Envolver(dialogo.Revelar("¡Lo botaste, weón! " + ControladorPartidaBotellas.TotalEnPalabras(true) + " botellas y un gigante menos... ¡Ahora sí que nos vamos a curar como la gente!", 3.5f, "cj_final"), () => hecho = true));
         while (!hecho || reloj < 3f)
         {
             reloj += Time.deltaTime;

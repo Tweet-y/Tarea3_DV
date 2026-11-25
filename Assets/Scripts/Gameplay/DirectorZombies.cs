@@ -15,7 +15,8 @@ public sealed class DirectorZombies : MonoBehaviour
     public static DirectorZombies Instancia { get; private set; }
 
     const int MaximoVivos = 30;
-    const float DistanciaMinima = 20f, DistanciaMaxima = 36f, DistanciaReciclar = 75f;
+    // Los refuerzos aparecen lejos y fuera de cámara: hay que caminar hacia ellos, no salen encima.
+    const float DistanciaMinima = 34f, DistanciaMaxima = 52f, DistanciaReciclar = 95f;
 
     readonly List<GameObject> plantillas = new List<GameObject>();
     readonly List<EnemigoAcechador> vivos = new List<EnemigoAcechador>();
@@ -118,8 +119,8 @@ public sealed class DirectorZombies : MonoBehaviour
             if (agenteCopia != null) agenteCopia.enabled = true;
             plantillas.Add(copia);
         }
-        proximaAparicion = Time.time + 18f;
-        proximaOleada = Time.time + 70f;
+        proximaAparicion = Time.time + 35f;
+        proximaOleada = Time.time + 120f;
         listo = true;
     }
 
@@ -131,6 +132,7 @@ public sealed class DirectorZombies : MonoBehaviour
         float correr = corredor ? Random.Range(4.5f, 5.1f) : Random.Range(3.1f, 4f);
         correr = Mathf.Min(5.3f, correr * Mathf.Lerp(1f, 1.08f, p));
         e.ConfigurarHorda(correr, 26f, 7f);
+        if (e.GetComponent<SonidoZombie>() == null) e.gameObject.AddComponent<SonidoZombie>();
         e.rangoAtaque = 1.9f;
         e.cadenciaAtaque = Random.Range(.95f, 1.25f);
     }
@@ -144,20 +146,21 @@ public sealed class DirectorZombies : MonoBehaviour
         float p = Progreso;
         Limpiar();
         RevisarAtascados();
-        int objetivo = Mathf.Min(MaximoVivos, inicial + Mathf.RoundToInt(Mathf.Lerp(3f, 15f, p)));
+        int objetivo = Mathf.Min(MaximoVivos, inicial + Mathf.RoundToInt(Mathf.Lerp(2f, 8f, p)));
 
         if (Time.time >= proximaAparicion)
         {
-            proximaAparicion = Time.time + Mathf.Lerp(7f, 2.5f, p);
-            if (vivos.Count < objetivo) Aparecer(Random.Range(0f, 360f), 360f, Random.value < Mathf.Lerp(.6f, .9f, p));
+            proximaAparicion = Time.time + Mathf.Lerp(15f, 7f, p);
+            // Si ya lo están acosando varios, no se suman más: primero tiene que sacárselos de encima.
+            if (vivos.Count < objetivo && Acosando() < 5) Aparecer(Random.Range(0f, 360f), 360f, Random.value < Mathf.Lerp(.25f, .5f, p));
         }
 
         if (Time.time >= proximaOleada)
         {
-            proximaOleada = Time.time + Mathf.Lerp(80f, 45f, p);
+            proximaOleada = Time.time + Mathf.Lerp(130f, 80f, p);
             // La oleada llega junta desde un mismo lado y ya sabe dónde está el jugador.
             float lado = Random.Range(0f, 360f);
-            int cantidad = Mathf.Min(MaximoVivos - vivos.Count, 3 + Mathf.RoundToInt(4f * p));
+            int cantidad = Mathf.Min(MaximoVivos - vivos.Count, 2 + Mathf.RoundToInt(3f * p));
             for (int i = 0; i < cantidad; i++) Aparecer(lado, 50f, true);
         }
     }
@@ -218,6 +221,15 @@ public sealed class DirectorZombies : MonoBehaviour
             if (BuscarPunto(Random.Range(0f, 360f), 360f, out var punto)) e.Reubicar(punto);
             rastro[e] = (e.transform.position, Time.time);
         }
+    }
+
+    /// <summary>Zombies que ya persiguen al jugador y están a menos de 25 m.</summary>
+    int Acosando()
+    {
+        int cuenta = 0;
+        foreach (var e in vivos)
+            if (e != null && e.Alertado && (e.transform.position - jugador.position).sqrMagnitude < 25f * 25f) cuenta++;
+        return cuenta;
     }
 
     void Limpiar()
