@@ -35,6 +35,7 @@ public static class Sonido
         var objeto = new GameObject("Sonido");
         objeto.transform.position = posicion;
         var fuente = objeto.AddComponent<AudioSource>();
+        fuente.priority = 160;
         fuente.clip = clip;
         fuente.volume = volumen;
         fuente.pitch = tono;

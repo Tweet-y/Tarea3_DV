@@ -67343,9 +67343,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1408541037}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1640290712}
+  m_Script: {fileID: 11500000, guid: d6d637be41cf45f39cc6fc575d65ca8d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DisparadorBote
+  final: {fileID: 524658940}
 --- !u!65 &1408541040
 BoxCollider:
   m_ObjectHideFlags: 0

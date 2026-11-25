@@ -46,6 +46,10 @@ public static class SintesisAudio
             if (rugidos != null) return rugidos;
             rugidos = Cargar("Sonido/Zombies/Rugidos");
             if (rugidos.Length > 0) return rugidos;
+            // Sin rugidos grabados pero con gemidos grabados (el zombie de Minecraft): se usan esos;
+            // SonidoZombie los sube de tono al perseguir y atacar. Mezclar con los sintéticos sonaría a dos bichos distintos.
+            var grabados = Cargar("Sonido/Zombies/Gemidos");
+            if (grabados.Length > 0) return rugidos = grabados;
             var azar = new System.Random(23);
             rugidos = new AudioClip[4];
             for (int i = 0; i < rugidos.Length; i++)
@@ -108,6 +112,34 @@ public static class SintesisAudio
                 ruido * (.7f + .3f * Mathf.Sin(2f * Mathf.PI * .5f * t)), azar, 1400f);
             return agua;
         }
+    }
+
+    static readonly System.Collections.Generic.Dictionary<(AudioClip, float), AudioClip> amplificados =
+        new System.Collections.Generic.Dictionary<(AudioClip, float), AudioClip>();
+
+    /// <summary>
+    /// Copia del clip con más ganancia (un AudioSource no pasa de volumen 1). Un limitador suave evita
+    /// que distorsione. Si el clip no deja leer sus muestras (streaming), devuelve el original.
+    /// </summary>
+    public static AudioClip Amplificado(AudioClip clip, float ganancia)
+    {
+        if (clip == null || ganancia <= 1.001f) return clip;
+        if (amplificados.TryGetValue((clip, ganancia), out var hecho) && hecho != null) return hecho;
+        if (clip.loadType != AudioClipLoadType.DecompressOnLoad) return clip;
+        var datos = new float[clip.samples * clip.channels];
+        if (!clip.GetData(datos, 0)) return clip;
+        for (int i = 0; i < datos.Length; i++)
+        {
+            float x = datos[i] * ganancia;
+            // Lineal hasta ±0,7; por encima se curva hacia ±1 en vez de recortarse.
+            float a = Mathf.Abs(x);
+            if (a > .7f) x = Mathf.Sign(x) * (.7f + .3f * (float)System.Math.Tanh((a - .7f) / .3f));
+            datos[i] = x;
+        }
+        var copia = AudioClip.Create(clip.name + "_x" + ganancia.ToString("0.0"), clip.samples, clip.channels, clip.frequency, false);
+        copia.SetData(datos, 0);
+        amplificados[(clip, ganancia)] = copia;
+        return copia;
     }
 
     // ------------------------------------------------------------------ Generadores

@@ -68,6 +68,7 @@ public sealed partial class PeleaJefeLancha
         panelSkill.SetActive(false);
 
         audioUI = gameObject.AddComponent<AudioSource>();
+        audioUI.priority = 40;
         audioUI.playOnAwake = false;
         audioUI.spatialBlend = 0f;
         Sonido.Asignar(audioUI, "Efectos");

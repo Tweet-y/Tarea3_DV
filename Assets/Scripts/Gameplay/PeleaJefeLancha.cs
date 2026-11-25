@@ -197,6 +197,22 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         foreach (var col in botella.GetComponentsInChildren<Collider>(true)) col.enabled = true;
     }
 
+    /// <summary>Agua libre junto al muelle donde se amarra la lancha: primero hacia afuera de la isla, luego a los lados.</summary>
+    static Vector3 AguaJuntoAlMuelle(Transform muelle, Bounds b, out Vector3 fuera)
+    {
+        fuera = GeografiaIsla.Plano(b.center - GeografiaIsla.Centro);
+        if (fuera.sqrMagnitude < .01f) fuera = GeografiaIsla.Plano(muelle.forward);
+        fuera.Normalize();
+        Vector3 lado = Vector3.Cross(Vector3.up, fuera);
+        foreach (var dir in new[] { fuera, (fuera + lado).normalized, (fuera - lado).normalized, lado, -lado })
+            for (float d = 2f; d <= 80f; d += 1.5f)
+            {
+                Vector3 p = b.center + dir * d;
+                if (GeografiaIsla.EsAguaAmplia(p, 3.5f)) return p;
+            }
+        return b.center + fuera * (Mathf.Max(b.extents.x, b.extents.z) + 4f);
+    }
+
     /// <summary>Lleva la lancha al agua junto a muelle_final y el punto de abordaje al borde del muelle.</summary>
     public static bool UbicarEnMuelle(Transform lancha, Transform puntoExtraccion, Transform cj)
     {
@@ -212,26 +228,8 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         var jugador = GameObject.FindGameObjectWithTag("Player");
         if (jugador != null) GeografiaIsla.Ignorados.Add(jugador.transform);
         Bounds b = GeografiaIsla.Limites(muelle);
-        Vector3 fuera = GeografiaIsla.Plano(b.center - GeografiaIsla.Centro);
-        if (fuera.sqrMagnitude < .01f) fuera = GeografiaIsla.Plano(muelle.forward);
-        fuera.Normalize();
-        float y = lancha.position.y;
-        Vector3 lugar = b.center + fuera * (Mathf.Max(b.extents.x, b.extents.z) + 4f);
-        bool hallado = false;
-        // Buscar agua libre alrededor del muelle, primero hacia afuera y luego a los lados.
-        Vector3 lado = Vector3.Cross(Vector3.up, fuera);
-        foreach (var dir in new[] { fuera, (fuera + lado).normalized, (fuera - lado).normalized, lado, -lado })
-        {
-            for (float d = 2f; d <= 80f && !hallado; d += 1.5f)
-            {
-                Vector3 p = b.center + dir * d;
-                if (!GeografiaIsla.EsAguaAmplia(p, 3.5f)) continue;
-                lugar = p;
-                hallado = true;
-            }
-            if (hallado) break;
-        }
-        lugar.y = y;
+        Vector3 lugar = AguaJuntoAlMuelle(muelle, b, out Vector3 fuera);
+        lugar.y = lancha.position.y;
         lancha.gameObject.SetActive(true);
         lancha.position = lugar;
         Vector3 haciaMuelle = GeografiaIsla.Plano(b.center - lugar);
@@ -278,9 +276,13 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         StartCoroutine(Secuencia());
     }
 
+    MusicaJefe musica;
+
     IEnumerator Secuencia()
     {
         fase = Fase.Intro;
+        // La música épica entra con la aparición del jefe y queda durante todo el combate.
+        musica = MusicaJefe.Iniciar(gameObject);
         IntroduccionIsla.Extra = true;
         PrepararJugador();
         PrepararCamara();
@@ -302,6 +304,8 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         proximoLanzamiento = 3f;
         Mensaje("¡REVIENTA LO QUE TE LANCE ANTES DE QUE CAIGA!", 3f);
         while (!nemesis.Muerto && !hundida && partida.Estado == ControladorPartidaBotellas.Resultado.EnCurso) yield return null;
+        // Ganada, perdida o hundida: la música del jefe se va y vuelve la de la isla.
+        if (musica != null) musica.Terminar();
         if (hundida) { yield return Hundimiento(); yield break; }
         if (partida.Estado != ControladorPartidaBotellas.Resultado.EnCurso) yield break;
 
@@ -455,6 +459,8 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         CrearEfectosArma();
 
         audioArma = gameObject.AddComponent<AudioSource>();
+        // Cada bala es una voz nueva (8 por segundo): si falta espacio, se pierde un disparo antes que la música o CJ.
+        audioArma.priority = 200;
         audioArma.playOnAwake = false;
         audioArma.spatialBlend = 0f;
         audioArma.pitch = .72f;
@@ -712,6 +718,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         Vector3 lado = Vector3.Cross(Vector3.up, haciaLancha);
         t.position = suelo - Vector3.up * altura * .95f;
         var dialogo = ControladorDialogo.Crear(false);
+        dialogo.GananciaVoz = GananciaVozCJ;
 
         // Plano 1: desde la lancha, la orilla tiembla y Nemesis emerge.
         Vector3 camPos = lancha.position + haciaLancha * 8f + Vector3.up * 4f + lado * 2.5f;
@@ -814,6 +821,7 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
                 if (p.name == "Speed" && p.type == AnimatorControllerParameterType.Float) animJugador.SetFloat("Speed", 0f);
 
         var dialogo = ControladorDialogo.Crear(true);
+        dialogo.GananciaVoz = GananciaVozCJ;
         dialogo.Negro.color = Color.clear;
         Vector3 salida = GeografiaIsla.Plano(lancha.position - GeografiaIsla.Centro);
         if (salida.sqrMagnitude < .01f) salida = lancha.forward;
@@ -1184,6 +1192,8 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
     }
 
     AudioSource vozCJ;
+    // La voz de CJ compite con la metralleta, las explosiones y la música: se amplifica en toda la pelea.
+    const float GananciaVozCJ = 1.6f;
 
     /// <param name="voz">Clip en Resources/Voces (sin extensión). Sin clip, la frase queda solo escrita.</param>
     void Decir(string texto, string voz = null)
@@ -1193,12 +1203,13 @@ public sealed partial class PeleaJefeLancha : MonoBehaviour
         if (vozCJ != null && vozCJ.isPlaying) return;
         lineaCJ.text = texto;
         float duracion = 3f;
-        var clip = string.IsNullOrEmpty(voz) ? null : Resources.Load<AudioClip>("Voces/" + voz);
+        var clip = SintesisAudio.Amplificado(string.IsNullOrEmpty(voz) ? null : Resources.Load<AudioClip>("Voces/" + voz), GananciaVozCJ);
         if (clip != null)
         {
             if (vozCJ == null)
             {
                 vozCJ = gameObject.AddComponent<AudioSource>();
+                vozCJ.priority = 5;
                 vozCJ.playOnAwake = false;
                 vozCJ.spatialBlend = 0f;
                 Sonido.Asignar(vozCJ, "Voces");

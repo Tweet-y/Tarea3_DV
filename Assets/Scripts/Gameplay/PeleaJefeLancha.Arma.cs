@@ -112,6 +112,7 @@ public sealed partial class PeleaJefeLancha
         }
 
         audioGrave = gameObject.AddComponent<AudioSource>();
+        audioGrave.priority = 210;
         audioGrave.playOnAwake = false;
         audioGrave.spatialBlend = 0f;
         Sonido.Asignar(audioGrave, "Efectos");
@@ -260,11 +261,12 @@ public sealed partial class PeleaJefeLancha
             bala.activa = true;
         }
 
-        if (clipDisparo != null) audioArma.PlayOneShot(clipDisparo, Random.Range(.6f, .74f));
+        // Disparo y golpe grave suenan juntos en cada bala (8 por segundo): ambos bajos para no tapar a CJ.
+        if (clipDisparo != null) audioArma.PlayOneShot(clipDisparo, Random.Range(.19f, .24f));
         if (audioGrave != null && clipGolpe != null)
         {
             audioGrave.pitch = Random.Range(.93f, 1.06f);
-            audioGrave.PlayOneShot(clipGolpe, .85f);
+            audioGrave.PlayOneShot(clipGolpe, .38f);
         }
     }
 

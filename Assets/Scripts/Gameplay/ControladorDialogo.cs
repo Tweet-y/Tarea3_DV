@@ -23,6 +23,9 @@ public sealed class ControladorDialogo : MonoBehaviour
     float tonoVoz = 1f;
     bool esperando;
 
+    /// <summary>Más de 1 sube la voz grabada por encima de la música (la pelea del jefe la usa).</summary>
+    public float GananciaVoz { get; set; } = 1f;
+
     public static ControladorDialogo Crear(bool conFundido)
     {
         var objeto = new GameObject("Dialogo", typeof(RectTransform));
@@ -70,6 +73,8 @@ public sealed class ControladorDialogo : MonoBehaviour
         dialogo.indicacion.color = EstiloCurao.TextoTenue;
 
         dialogo.fuente = objeto.AddComponent<AudioSource>();
+        // Los diálogos casi nunca se pierden, aunque se llene el límite de voces.
+        dialogo.fuente.priority = 5;
         dialogo.fuente.playOnAwake = false;
         dialogo.fuente.spatialBlend = 0f;
         Sonido.Asignar(dialogo.fuente, "Voces");
@@ -105,6 +110,7 @@ public sealed class ControladorDialogo : MonoBehaviour
             yield break;
         }
         var clip = string.IsNullOrEmpty(voz) ? null : Resources.Load<AudioClip>("Voces/" + voz);
+        clip = SintesisAudio.Amplificado(clip, GananciaVoz);
         if (clip != null)
         {
             fuente.pitch = 1f;

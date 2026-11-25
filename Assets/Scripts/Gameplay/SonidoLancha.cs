@@ -42,6 +42,7 @@ public sealed class SonidoLancha : MonoBehaviour
         }
         var fuente = hijo.GetComponent<AudioSource>();
         if (fuente == null) fuente = hijo.gameObject.AddComponent<AudioSource>();
+        fuente.priority = 150;
         fuente.clip = clip;
         fuente.loop = true;
         fuente.playOnAwake = false;
@@ -73,8 +74,9 @@ public sealed class SonidoLancha : MonoBehaviour
         encendido = Mathf.MoveTowards(encendido, enMarcha ? 1f : 0f, dt * (enMarcha ? 2f : .6f));
 
         float k = Mathf.Clamp01(velocidad / VelocidadMaxima);
-        Ajustar(motor, encendido * (.25f + .45f * k), .6f + .8f * k);
-        Ajustar(agua, Mathf.Clamp01(velocidad / 3f) * (.15f + .45f * k), .85f + .3f * k);
+        // Fondo, no protagonista: el jugador va encima de la lancha y no debe tapar disparos ni voces.
+        Ajustar(motor, encendido * (.06f + .09f * k), .6f + .8f * k);
+        Ajustar(agua, Mathf.Clamp01(velocidad / 3f) * (.03f + .07f * k), .85f + .3f * k);
     }
 
     static void Ajustar(AudioSource fuente, float volumen, float tono)

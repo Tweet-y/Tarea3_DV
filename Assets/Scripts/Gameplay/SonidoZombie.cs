@@ -49,6 +49,8 @@ public sealed class SonidoZombie : MonoBehaviour
         }
         var fuente = hijo.GetComponent<AudioSource>();
         if (fuente == null) fuente = hijo.gameObject.AddComponent<AudioSource>();
+        // Con 30 zombies son muchas fuentes: van detrás de música, voces y armas.
+        fuente.priority = 190;
         fuente.playOnAwake = false;
         fuente.spatialBlend = 1f;
         fuente.rolloffMode = AudioRolloffMode.Linear;
@@ -84,7 +86,7 @@ public sealed class SonidoZombie : MonoBehaviour
         {
             bool alerta = acecho.Alertado;
             proximaVoz = Time.time + (alerta ? Random.Range(2.2f, 4.5f) : Random.Range(5f, 11f));
-            if (alerta && Random.value < .55f) Hablar(SintesisAudio.Rugidos, .75f, 1f);
+            if (alerta && Random.value < .55f) Hablar(SintesisAudio.Rugidos, .75f, 1.15f);
             else Hablar(SintesisAudio.Gemidos, alerta ? .8f : .6f, 1f);
         }
     }
@@ -113,7 +115,7 @@ public sealed class SonidoZombie : MonoBehaviour
     {
         if (vida != null && vida.Muerto) return;
         proximaVoz = Mathf.Max(proximaVoz, Time.time + 1.5f);
-        Hablar(SintesisAudio.Rugidos, .95f, 1.12f, forzar: true);
+        Hablar(SintesisAudio.Rugidos, .95f, 1.25f, forzar: true);
     }
 
     void AlMorir()

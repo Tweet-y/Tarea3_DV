@@ -92,6 +92,7 @@ public sealed class ControladorArmaFuego : MonoBehaviour
         recargar = Accion("Recargar", "<Keyboard>/r", "<Gamepad>/buttonNorth");
         soltar = Accion("Soltar", "<Keyboard>/g", "<Gamepad>/dpad/down");
         audioArma = gameObject.AddComponent<AudioSource>();
+        audioArma.priority = 180;
         audioArma.playOnAwake = false;
         audioArma.spatialBlend = 0f;
         audioArma.volume = .5f;
