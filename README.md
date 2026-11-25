@@ -1,131 +1,157 @@
-# Plataformas en tercera persona - Evaluación 2 (UCSC 2026-2)
+# La Isla del Curao — Evaluación 3 / proyecto final (UCSC 2026-2)
 
-Proyecto de videojuego desarrollado en **Unity**, correspondiente a la segunda evaluación de la asignatura de Desarrollo de Videojuegos. Es un juego de **plataformas en tercera persona**, de temática libre: menú inicial, un nivel jugable y una pantalla de resumen al terminar.
+Juego de **rol y acción en tercera persona** hecho en **Unity 6000.3.21f1 (URP)** para la asignatura de Desarrollo de Videojuegos. Tema libre.
 
-Al cerrar el resumen, el juego vuelve al menú con carga asíncrona. El nivel incluye obstáculos que reducen la salud y dos enemigos que persiguen al jugador.
+CJ deja al protagonista en una isla infestada de zombies con un solo encargo: juntar todo el alcohol que encuentre. El jugador recorre la isla, pelea con bate, rifle y escopeta, abre cajas, se cura y, al completar las botellas, escapa en lancha para enfrentar al jefe.
+
+**Flujo:** `MenuInicio` → `MapaV2` (la isla) → pantalla de resumen → menú.
 
 ---
 
 ## Integración de requerimientos
 
-### Scripting: manejo de corrutinas
-- La carga de escenas corre en una corrutina (`ControladorMenus.CargarEscena`): inicia `LoadSceneAsync`, actualiza la barra y el porcentaje frame a frame y activa la escena cuando la carga termina.
-
-### UI: HUD y botón de inicio
-- **Menú (`MenuInicio`):** botón de inicio que carga el nivel.
-- **HUD:** salud, botellas objetivo y puntos actualizados por `ControladorGameplayHUD` desde `ControladorPartidaBotellas`.
-- **Cierre:** pantalla de resumen con el resultado de la partida, y desde ahí el regreso al menú.
-- **Estilo común:** `EstiloUI` define la paleta de atardecer (oro, rosa, magenta, noche) y las fuentes de toda la interfaz, con contorno negro grueso y sombra dura. Lo usan el HUD, los menús, la pantalla de carga, los diálogos (franjas de cine) y el HUD de la pelea del jefe. Las opciones de menú son texto con una franja inclinada (`FormaUIGraphic`, `RealceBotonMenu`).
-- **Fuentes:** **Anton** (HUD y menús) y **Bangers** (títulos), ambas con licencia **SIL Open Font License 1.1**; los archivos y sus licencias están en `Assets/Resources/Fuentes/`. El texto largo usa LiberationSans, la fuente por defecto de TextMesh Pro.
-
-### Sonido: efectos y música de fondo
-- **Música de fondo** en loop durante el nivel.
-- **Efectos del juego:** recolección, daño por obstáculos, victoria y derrota.
-- **Efectos de interfaz:** el mismo efecto de moneda en los botones de inicio, pausa y resumen. Se escucha con la partida en pausa y no se corta al cambiar de escena.
-
-### Input: teclado, ratón y gamepad
-- El jugador se controla con el **Input System** y la base de `ThirdPersonController` (Starter Assets): movimiento, cámara y salto con teclado, ratón y gamepad.
-
-### Personaje animado
-- Jugador **curao_principal**, basado en el personaje Synty `Character_ToplessMale_01`, con `ThirdPersonController`, Input System y cápsula de movimiento. Prefab: `Assets/Prefabs/curao_principal.prefab`.
-- Controlador `Assets/Animaciones/Personajes/CuraoPrincipalLocomotion.controller`: reposo, caminar, correr, sprint, salto, caída y aterrizaje de **Kevin Iglesias / Basic Motions**, con retargeting Humanoid y root motion desactivado.
-- La cámara Cinemachine sigue `PlayerCameraRoot` del jugador activo. Se conservan el HUD, el mapa, las botellas, la pausa, el daño por caídas, los objetivos de enemigos y la pose procedural del rifle. `AnimacionCuraoPrincipal` conserva los sonidos de pasos y aterrizaje.
-
 ### Gestión de escenas
-- Una escena de menú con botones que cargan el nivel de forma **asíncrona**, con pantalla de progreso.
-- Al terminar el nivel y la pantalla de resumen, la misma carga asíncrona devuelve al menú inicial.
+- Dos escenas: `MenuInicio` y `MapaV2` (`ControladorMenus.EscenaMenu` / `EscenaJuego`).
+- La carga es **asíncrona en corrutina** (`ControladorMenus.CargarEscena`): `LoadSceneAsync` con barra de progreso y porcentaje frame a frame, y activación al terminar.
+- El resumen permite **volver a jugar** (recarga la isla) o **ir al menú principal**, por el mismo camino asíncrono. Si se entra a `MapaV2` directo desde el editor, el juego rebota al menú para no saltarse el flujo.
 
-### Mecánicas
-- **Mapa de la ciudad:** radar circular inspirado en San Andreas, con borde negro grueso, edificios claros, calles negras y terrenos verdes. Tiene zoom de 3×, está centrado en el jugador y se desplaza con él. La ciudad se revela al explorar un radio de 22 metros y conserva las zonas descubiertas durante la partida. Los círculos amarillos de posibles botellas aparecen sólo en sectores descubiertos y desaparecen al recoger sus botellas. **M** amplía el panel con zoom de 1,5×, manteniendo la exploración y sin pausar la partida.
-- **Botellas azules:** cinco curativas distribuidas junto a ubicaciones accesibles de las botellas del nivel; recuperan un **8 %** de vida, hasta el máximo, sin sumar al objetivo ni a los puntos. La curación reduce la intoxicación según el sistema de vida existente.
-- **Caídas:** hasta **4 metros** sin daño; por encima se pierde **4,5 % de vida por metro adicional** al aterrizar. Los valores son configurables en `DanioCaida`.
-- **Victoria:** al completar las botellas objetivo, aparece `mission passed!` en dorado y `RESPECT + 99` en blanco, con contorno negro y opciones de volver a jugar o regresar al menú.
-- **Verificación integrada:** `Tools > Gameplay > Verificar mapa curacion caida y victoria` ejecuta una partida de prueba y escribe el resultado en `Logs/ciudad-final-validada.txt`.
-- **Coleccionables:** `ObjetoEspecialColeccionable` recoge botellas una sola vez. El trigger rectangular mide el tamaño original del mesh × **1,30** en cada eje, también para curativas; el modelo conserva su tamaño.
-- **Salud y ebriedad:** recoger botellas objetivo aumenta la ebriedad y reduce la salud; las azules recuperan salud. La ebriedad también aumenta con el tiempo a **0,001 / 1,20 = 0,00083333 por segundo**, dando un 20 % más de margen temporal con los mismos daños y curaciones. Los obstáculos aplican daño mediante `TrampaDanio`.
-- **Victoria y derrota:** el nivel detecta ambas condiciones y abre la pantalla de resumen antes de volver al menú. Morir por los golpes de un enemigo muestra «Te atraparon».
+### Nivel, menú y entidades acompañantes
+- Un nivel jugable completo (la isla), menú de inicio y pantalla de cierre.
+- El jugador no está solo: **CJ** es un NPC que aparece en la intro y en el final, y la isla está poblada de **zombies** y del **jefe**.
 
-### Armas de fuego
+### Daño en ambos sentidos, con animación y sonido
+- El jugador golpea con el **bate** y dispara **rifle** y **escopeta**; los zombies y el jefe le pegan de vuelta.
+- Cada impacto dispara el flujo completo: golpe conectado → daño → animación → sonido.
+- `ControladorVida` es el componente de vida compartido por zombies, jefe y cajas. `ControladorPartidaBotellas.RecibirDanio` es la única puerta de entrada del daño al jugador.
 
-- Rifle **Synty Battle Royale `SM_Wep_Rifle_Assault_03`**, recogible junto al punto de inicio. Los cargadores de munición aparecen junto al inicio y en varios sectores del recorrido.
-- **E:** recoger rifle o munición; **clic izquierdo mantenido:** disparo automático; **clic derecho:** apuntar; **R:** recargar; **G:** soltar el rifle.
-- **Mando:** X para recoger, RT para disparar, LB para apuntar, Y para recargar y cruceta abajo para soltar. LB evita interferir con el sprint del gatillo izquierdo.
-- **Movimiento al apuntar:** WASD o stick permiten avanzar, retroceder y desplazarse lateralmente manteniendo el torso hacia la mira. Paso de 1,45 m/s, sin sprint, con animaciones de caminar en ocho direcciones y sensibilidad de cámara reducida.
-- **Cámara al hombro:** al mantener clic derecho o LB, Cinemachine acerca la cámara a 1,8 m, desplaza el encuadre al hombro derecho y reduce el campo de visión a 32°. La transición dura 0,22 s; al soltar, recargar o dejar el arma recupera el encuadre normal. Se mantiene la detección de obstáculos de la cámara.
-- Cargador de **30**, reserva inicial de **120** y maxima de **240**; cajas de **60** balas. Cadencia de **8 disparos/s**, recarga de **2,2 s** y alcance de **150 m**. La municion se conserva al soltar y volver a recoger; una recarga interrumpida no transfiere balas. Con el cargador vacio, disparar inicia la recarga si queda reserva.
-- Mira, confirmacion de impacto, contador de municion, progreso de recarga, retroceso visual, fogonazo y sonido. Pose de brazos y extraccion del cargador mediante animacion procedural sobre el rig Humanoid del jugador.
-- Disparos hitscan: comprueban tanto la vista de la cámara como la trayectoria desde el cuerpo y el cañón, respetando paredes y cobertura. Daño de **25**, doble en la cabeza. Nemesis tiene **175** de vida y el Titán **1200**; al morir dejan de perseguir y hacer daño. Las botellas siguen siendo el objetivo de victoria.
-- Pausar congela la recarga y bloquea disparos y recogidas. Al terminar la partida se oculta el HUD de armas. El sistema se reinstala al cargar una partida nueva.
-- Ajustes y referencia al prefab original: `Assets/Resources/Armas/RifleAsalto03.asset`. La instalación se hace al cargar la escena de juego (`ControladorMenus.EscenaJuego`).
-- **Prueba integrada:** `Tools > Armas > Verificar sistema completo`, con las escenas guardadas y Play detenido. Comprueba recogida, impacto, cadencia, paredes, pausa, recarga, municion, soltar y recoger, y dano letal; genera `Logs/armas-fuego-verificadas.txt`. `Tools/PruebasMunicion.cs` prueba la logica de municion sin Unity.
+### Animator: atacar, recibir golpe y morir
+- Estados **Atacar**, **Golpe** y **Morir** para el jugador y para los enemigos (`EnemigoCombate.controller`, con overrides por tipo de enemigo).
+- La ventana de daño del cuerpo a cuerpo se abre y cierra con **eventos de animación** (`ActivaArma` / `DesactivaArma`) escritos en la importación del FBX, no con temporizadores.
+- Los enemigos mezclan locomoción con un blend tree sobre el parámetro `Speed`.
 
-### Introducción de la isla
+### NavMesh Surface + Bake, enemigos que persiguen
+- `NavMeshSurface` horneada y guardada **como asset** en `Assets/Scenes/MapaV2/NavMesh-Isla.asset` (así la escena sigue en texto y es mezclable en git).
+- Los zombies persiguen con `NavMeshAgent.SetDestination`, refrescando el destino en corrutina, y atacan al entrar en rango. `DirectorZombies` administra la horda.
+- Los puntos de aparición se filtran por la altura del mar para que nadie salga bajo el agua.
 
-- Al cargar `MapaV2` desde el menú aparece CJ en la lancha de la orilla y dice: «Hoy nos tenemos que curar, ve y consigue todo el alcohol que haya en esta isla, te espero al otro lado».
-- El texto aparece progresivamente. **Espacio / A** permite mostrarlo completo y continuar; también avanza automáticamente. CJ permanece sobre la lancha mientras esta acelera y se aleja al mar.
-- La cámara regresa a `curao_principal` y devuelve los controles al terminar el plano de salida. Durante la presentación se oculta el HUD y se bloquean disparos, recogidas, daño y ebriedad temporal. **Esc** conserva la pausa, incluyendo el diálogo y el movimiento de la lancha.
-- El objeto `IntroduccionIsla` de `MapaV2` permite ajustar las referencias de CJ y la lancha, el tiempo de lectura, la duración del plano de salida y la velocidad. CJ se configura como NPC, sin tag Player ni controles del jugador.
+### Rigidbody y colisiones por capas
+- Siete capas: **Jugador, Aliados, Enemigos, ArmaJugador, ArmaEnemigo, Objetos, Recogibles**.
+- `CapasJuego` reaplica la matriz de colisión en tiempo de ejecución: `ArmaEnemigo` solo toca al jugador, `ArmaJugador` toca enemigos y cajas, y `Recogibles` solo al jugador. Resultado: **los zombies no se dañan entre sí**, pero jugador ↔ enemigo sí funciona.
 
-### Enemigos
-- **Nemesis** aparece a unos 40 m del jugador, espera 5 s y lo persigue por el NavMesh. Camina a 2,2 m/s y corre a 4,6 m/s si está a más de 8 m (el sprint del jugador es 5,335, así que se le puede escapar). El golpe por contacto quita un 20 % de vida cada 1,5 s y empuja con fuerza 12.
-- **Titán** es el personaje Synty `Character_Biker_01` a escala 20 (unos 36 m). Usa NavMesh con su propio tipo de agente `Titan` (radio 3 m, altura 8 m) y su propia `NavMeshSurface` (`NavMesh-Titan.asset`), igual que el jefe grande de la demo del curso: recorre las avenidas anchas y, si el jugador se mete en una calle angosta, lo espera en el punto de avenida más cercano. Camina a 1,5 m/s y corre a 3,2 m/s si está a más de 40 m: a paso normal (2,0) el jugador apenas se le escapa, y con sprint sí. Por debajo del clip de caminar la animación reproduce Walk más lento, para que los pies no patinen ni quede en idle. El golpe quita un 35 % cada 2 s y empuja con fuerza 25.
-- Ambos persiguen con `NavMeshAgent.SetDestination` (como `MovimientoSimpleNPC`). El campo `objetivo` de `EnemigoAcechador` se asigna en la escena; si queda vacío, se busca el objeto con tag `Player`.
-- Ambos reutilizan `StarterAssetsThirdPerson` (caminar, correr, idle). El daño es `TrampaDanio` con `repetirMientrasContacto`. Pausa y fin de partida (`Time.timeScale = 0`) los congelan. El jugador puede defenderse con el rifle recogible de Battle Royale.
-- **Configurar:** `Tools > Enemigos > Configurar` (o `Unity -batchmode -projectPath . -executeMethod ConfigurarEnemigos.Ejecutar -quit` con el editor cerrado). Antes, si hace falta regenerar el FBX: `blender --background --python Tools/convertir_nemesis.py`.
-- **Verificar:** `Tools > Enemigos > Verificar` escribe `Logs/enemigos-validados.txt`.
-- **Créditos:** modelo de Nemesis por **toheed_zahid** en Sketchfab, licencia **CC-BY-4.0**. Hay que mantener esta atribución. El titán sale del pack Synty Polygon City Characters del material del curso. Los clips de combate, cuando están en `Assets/Animaciones/Combate/`, son de **Mixamo** (Adobe). Los efectos de partículas salen de Polygon Particle FX y los sonidos de ataque, impacto, buff y explosión del Ultimate Sound FX Bundle del material de clase.
+### Inventario básico
+- **1 / 2 / 3:** bate, rifle y escopeta.
+- **Q:** botiquín (+30 % de vida). **F:** bebida energética (buff de +50 % de daño y velocidad por 15 s).
+- La munición vive en cada arma; el HUD muestra icono, color y nombre según el arma activa.
 
-### Isla (evaluación 3)
+### Coleccionables con animación de recogida
+- **20 botellas objetivo:** 19 repartidas por la isla y la última la suelta el jefe. El medidor de ebriedad es el conteo n/20.
+- Al recogerse, el objeto **sube, se encoge y se desvanece** con un sonido suave, en vez de desaparecer de golpe.
+- Las **cajas** se rompen a batazos o con el interactuador y sueltan munición, curación o buff.
 
-El nivel que se juega desde el menú es **MapaV2**. Hay **30 botellas**: 29 en la isla y la última la lleva Nemesis. El medidor de ebriedad pasa a ser el conteo **n/30**; la vida baja solo con el daño. Al juntar las 30 aparecen fuegos artificiales y la lancha de CJ en el extremo opuesto. Subir a la lancha cierra con diálogo y victoria.
+### Audio Mixer
+- `Assets/Resources/Audio/MezcladorPrincipal.mixer` con grupos **Master, Música, Efectos y Voces**.
+- Todo el sonido pasa por `Sonido.Reproducir` / `Sonido.Asignar`, nunca por `AudioSource` suelto. Los clips del nivel viven en el `BancoSonidos` de la escena.
 
-- **Bate** en la mano (tecla **1**). **2** cambia al rifle si ya se recogió. Clic izquierdo o RT golpea o dispara según el arma activa.
-- **Q** usa un botiquín (+30 % de vida). **F** toma la bebida energética (+50 % de daño y de velocidad durante 15 s). La munición sigue en el rifle.
-- **Zombies** de personajes Synty persiguen por el NavMesh y pegan con una hitbox. No se dañan entre sí. Nemesis es el jefe (variante `NemesisJefe`, sin tocar el prefab de MapaV1 ni al titán).
-- **Cajas** se rompen y sueltan munición, curación o buff. El objeto sube y se encoge al recogerlo.
-- **Capas:** Jugador, Aliados, Enemigos, ArmaJugador, ArmaEnemigo, Objetos, Recogibles. El arma enemiga solo toca al jugador; la del jugador toca enemigos y cajas.
-- **NavMesh** horneado en `Assets/Scenes/MapaV2/NavMesh-Isla.asset`. La escena queda en texto.
-- **Audio Mixer** `Assets/Resources/Audio/MezcladorPrincipal.mixer` con grupos Master, Musica, Efectos y Voces.
-- **Cinemáticas** con corrutina: la intro de CJ, el plano del jefe al entrar en su zona y la salida en la lancha. Espacio o A adelantan el diálogo.
-- **Configurar:** `Tools > Isla > Configurar`. **Verificar:** `Tools > Isla > Verificar` escribe `Logs/isla-validada.txt`.
-- Los clips de atacar, recibir golpe y morir se leen de `Assets/Animaciones/Combate/` (Mixamo, FBX for Unity, Without Skin). `Tools > Isla > Configurar` los asigna también si la capa Combate ya existe. Sin esos archivos el Animator entra a los estados, pero con los clips de locomoción de reemplazo.
+### Cinemáticas
+- Tres momentos en corrutina: la **intro** de CJ en la lancha, el **plano del jefe** al entrar en su zona y la **salida final** con fuegos artificiales.
+- `SuspensionCinematica` congela al jugador y a los enemigos durante los planos; los diálogos se adelantan con **Espacio / A**.
+
+### UI, input y sonido
+- HUD con vida, botellas, munición, inventario y mapa circular estilo radar con exploración progresiva (**M** lo amplía sin pausar).
+- **Input System** sobre `ThirdPersonController` (Starter Assets): teclado, ratón y gamepad.
+- Música en loop y efectos de recolección, impacto, daño, victoria y derrota. **Esc** pausa sin cortar el audio de interfaz.
+
+---
+
+## Reutilizado del repositorio de clases
+
+Del repo del profesor (`ClaseUCSC2026`), adaptado a nombres y necesidades del proyecto:
+
+| De la clase | Dónde se usa |
+| :--- | :--- |
+| `MobController` / `MovimientoSimpleNPC` | Patrón de persecución con `NavMeshAgent` en `EnemigoAcechador` |
+| `MobAnimController` | Animator de enemigos: blend tree sobre `Speed` + Atacar/Golpe/Morir |
+| `ControladorJugador` | Vida como propiedad que emite `UnityEvent<float>` |
+| `ControladorBarraSalud` | Barras de vida por parámetro de Animator |
+| `Ataque01` y sus eventos | Eventos `ActivaArma` / `DesactivaArma` en los clips de ataque |
+| `DemoControlInteraccion` | `ControladorInteraccion`: zona de interacción para romper cajas con **E** |
+| Demo del jefe grande | Tipo de agente de NavMesh propio para el titán de `MapaV1` |
+| Material del curso | Starter Assets, personajes Synty, Polygon Particle FX y Ultimate Sound FX Bundle |
+
+También se siguieron sus convenciones: nombres en español (`Controlador*`), campos públicos o `[SerializeField]` cableados en el Inspector, `UnityEvent` para desacoplar y `GetComponent` de respaldo en `Start` / `Reset`.
+
+## Nuevo, hecho por el equipo
+
+- **`ControladorPartidaBotellas`:** centro de estado de la partida (vida, ebriedad, botellas, resultado y causa) con eventos a los que se suscribe todo el HUD.
+- **Sistema de armas de fuego:** `ControladorArmaFuego` con disparo hitscan, munición y recarga (`EstadoMunicion`, lógica pura y testeable), cámara de apuntado al hombro, casquillos y efectos de impacto.
+- **Poses procedurales:** `PoseRifleProcedural` y `PoseBateProcedural` colocan brazos y arma sobre el rig Humanoid por código.
+- **Combate cuerpo a cuerpo:** `GolpeMelee` como hitbox de trigger con un impacto por objetivo y por golpe.
+- **Pelea del jefe en la lancha** con sus propias fases y dificultad.
+- **Audio propio:** `SintesisAudio`, `SonidoZombie`, `SonidoLancha` y las voces grabadas de CJ en la intro y la pelea.
+- **HUD de armas** con icono, color y animación por arma, y mapa con niebla de exploración.
+- **Herramientas de editor:** `ConfigurarIsla` genera la isla completa (capas, mixer, animators, prefabs, cajas, botellas, zombies, jefe, NavMesh) desde un script, y `ValidarIsla` entra a Play y corre **24 comprobaciones** automáticas que se escriben en `Logs/isla-validada.txt`.
+
+---
+
+## Principales dificultades
+
+1. **Las armas no se veían bien al moverse.** Los modelos no calzaban con las animaciones del personaje: el rifle y el bate quedaban flotando o atravesando el cuerpo. Se resolvió con **poses procedurales** (IK sobre el rig Humanoid) en vez de buscar clips nuevos para cada arma.
+2. **Rendimiento por el alcance de las balas.** Con mucho alcance, los proyectiles y sus efectos **se acumulaban** en escena y la tasa de cuadros caía. Se pasó a **disparo hitscan** con alcance limitado y reciclaje de efectos e impactos.
+3. **Sonidos superpuestos.** Con varios zombies, disparos y la lancha a la vez, el audio saturaba y se pisaba. Se centralizó todo en el **Audio Mixer** por buses y se limitaron las voces simultáneas por tipo de sonido.
+4. **Zombies bajo el mar y la lancha "hundida".** Los puntos del NavMesh caían bajo el nivel del agua, así que ahora se **filtran por altura del mar**. La lancha, en cambio, no estaba hundida: era el **shader de agua transparente** dibujándose sobre el casco. Diagnosticarlo evitó "arreglar" algo que funcionaba.
+5. **Generar la isla a mano era insostenible.** Cada ajuste tocaba decenas de objetos. Se movió todo a `ConfigurarIsla`, de modo que la escena es **salida regenerable** de un script y no se edita a mano.
+6. **Verificar sin romper el flujo.** Unity no recompila sin foco y solo admite una instancia por proyecto, así que las pruebas se automatizaron con **disparadores por archivo y logs** (`Tools > Isla > Configurar` / `Verificar`).
+7. **Clips de combate pendientes.** `Assets/Animaciones/Combate/` está vacío, así que los enemigos entran correctamente a los estados Atacar, Golpe y Morir, pero con **clips de reemplazo** de locomoción. Al dejar los FBX de Mixamo en esa carpeta, `Configurar` los asigna sin cambiar código.
 
 ---
 
 ## Controles
 
-- **1 / 2** o cruceta izquierda/derecha: bate o rifle.
-- **Clic izquierdo / RT:** golpear con el bate, o disparar si el rifle está seleccionado.
+- **1 / 2 / 3** o cruceta: bate, rifle, escopeta.
+- **Clic izquierdo / RT:** golpear o disparar según el arma activa. **Clic derecho / LB:** apuntar. **R / Y:** recargar.
+- **E / X:** recoger arma o munición, y romper cajas por interacción. **G:** soltar el arma.
 - **Q:** botiquín. **F:** bebida energética.
-- **H:** ocultar o mostrar las indicaciones. También en **Esc**. La vida, las botellas, el mapa y la munición siguen visibles.
-- **WASD:** mover; **ratón:** cámara; **Espacio:** saltar; **Shift:** correr.
-- **Esc:** pausar y continuar; **M:** ampliar o reducir mapa sin pausar.
-- **Gamepad:** sticks para movimiento/cámara, botón sur para saltar y gatillo izquierdo para correr.
-- Objetivo en la isla: juntar las 30 botellas y volver a la lancha de CJ.
+- **WASD:** mover. **Ratón:** cámara. **Espacio:** saltar. **Shift:** correr.
+- **Esc:** pausar. **M:** ampliar o reducir el mapa sin pausar. **H:** ocultar o mostrar las indicaciones.
+- **Gamepad:** sticks para movimiento y cámara, botón sur para saltar, gatillo izquierdo para correr.
+- **Objetivo:** juntar las 20 botellas y volver a la lancha de CJ.
 
 ---
+
+## Herramientas del proyecto
+
+- `Tools > Isla > Configurar` regenera la isla completa. `Tools > Isla > Verificar` corre la validación en Play y escribe `Logs/isla-validada.txt`.
+- `Tools > Enemigos > Configurar` / `Verificar` mantienen los enemigos de `MapaV1`.
+- Con el editor cerrado: `Unity -batchmode -projectPath . -executeMethod ConfigurarIsla.Ejecutar -quit`.
+- Los assets generados (prefabs, animators, NavMesh, escena) **se cambian editando el generador y regenerando**, nunca a mano.
 
 ## Estructura del proyecto
 
 ```
 Assets/
-├── Animaciones/           # Controladores y clips del personaje
-├── Inputs/                # Acciones de input
-├── Materiales/            # Materiales del nivel y del personaje
-├── Prefabs/               # Personaje, enemigos, coleccionables y obstáculos
-├── Scenes/                # MenuInicio y escenas de nivel
-├── Scripts/               # Lógica de juego en C#
-│   ├── ObjetoEspecialColeccionable.cs
-│   ├── CJLocomotionAnimation.cs
-│   ├── ControladorMusica.cs
-│   ├── Gameplay/           # Partida, caída, trampas y botellas curativas
-│   └── UI/                 # Menús, HUD y mapa
-├── Starter Assets/        # ThirdPersonController e input de ejemplo
-├── Synty/                 # Modelos y animaciones de apoyo
-└── TextMesh Pro/          # Fuentes y recursos de UI
+├── Animaciones/           # Controladores, overrides y clips (Combate/ para Mixamo)
+├── Editor/                # ConfigurarIsla, ValidarIsla y otras herramientas
+├── Inputs/                # Acciones de Input System
+├── Prefabs/               # Jugador, enemigos, coleccionables y props
+├── Resources/             # Armas, catálogo de objetos, mixer y fuentes
+├── Scenes/                # MenuInicio, MapaV2 (isla) y MapaV1 (ciudad, etapa anterior)
+├── Scripts/
+│   ├── Gameplay/          # Partida, combate, inventario, enemigos, audio y cinemáticas
+│   └── UI/                # Menús, HUD, mapa y diálogos
+├── Starter Assets/        # ThirdPersonController e input base
+└── Synty/                 # Modelos y animaciones de apoyo
 ```
 
+`MapaV1` (la ciudad de la evaluación anterior, con Nemesis y el titán) sigue en el repositorio como referencia, pero no se alcanza desde el menú.
+
 ---
+
+## Créditos
+
+- Modelo de **Nemesis** por **toheed_zahid** en Sketchfab, licencia **CC-BY-4.0**. Esta atribución debe mantenerse.
+- Personajes, props y partículas de los packs **Synty Polygon** del material del curso. Animaciones de **Kevin Iglesias** (Basic Motions, Melee Warrior) y de **Mixamo** (Adobe) para los clips de combate.
+- Efectos de sonido del **Ultimate Sound FX Bundle** del material de clase.
+- Fuentes **Anton** y **Bangers**, licencia **SIL Open Font License 1.1**; los archivos y licencias están en `Assets/Resources/Fuentes/`.
 
 ## Autores
 
